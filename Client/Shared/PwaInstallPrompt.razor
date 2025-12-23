@@ -1,0 +1,99 @@
+@inject IJSRuntime JS
+
+@if (showInstallPrompt)
+{
+    <div class="pwa-install-banner alert alert-info alert-dismissible fade show position-fixed bottom-0 start-0 end-0 m-3" role="alert" style="z-index: 1050;">
+        <div class="d-flex align-items-center">
+            <div class="flex-grow-1">
+                <h6 class="alert-heading mb-1">Installera Studieassistenten</h6>
+                <small>Lägg till på hemskärmen för snabbare åtkomst och användning offline</small>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm me-2" @onclick="HandleInstallClick">
+                Installera
+            </button>
+            <button type="button" class="btn-close" @onclick="DismissPrompt" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool showInstallPrompt = false;
+    private bool installDismissed = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Check if already dismissed
+                var dismissed = await JS.InvokeAsync<string>("localStorage.getItem", "pwa-install-dismissed");
+                installDismissed = dismissed == "true";
+
+                if (!installDismissed)
+                {
+                    // Check if app is installed or installable
+                    var canInstall = await JS.InvokeAsync<bool>("eval", 
+                        "(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) ? false : true");
+                    
+                    showInstallPrompt = canInstall;
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                // Silently fail if localStorage or other APIs are not available
+            }
+        }
+    }
+
+    private async Task HandleInstallClick()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", @"
+                if (window.deferredPrompt) {
+                    window.deferredPrompt.prompt();
+                    const result = await window.deferredPrompt.userChoice;
+                    window.deferredPrompt = null;
+                }
+            ");
+        }
+        catch
+        {
+            // If the install API is not available, provide guidance
+            await JS.InvokeVoidAsync("alert", 
+                "För att installera:\n\n" +
+                "På Desktop: Klicka på ikonen i adressfältet eller använd menyn 'Installera app'\n\n" +
+                "På iPhone: Tryck på 'Dela' och välj 'Lägg till på hemskärmen'\n\n" +
+                "På Android: Öppna menyn och välj 'Installera app'");
+        }
+        
+        showInstallPrompt = false;
+        StateHasChanged();
+    }
+
+    private async Task DismissPrompt()
+    {
+        await JS.InvokeVoidAsync("localStorage.setItem", "pwa-install-dismissed", "true");
+        showInstallPrompt = false;
+        StateHasChanged();
+    }
+}
+
+<style>
+    .pwa-install-banner {
+        animation: slideUp 0.3s ease-out;
+    }
+
+    @@keyframes slideUp {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+</style>

@@ -1,21 +1,26 @@
 {
-  "name": "StudieAssistenten",
-  "short_name": "StudieAssistenten",
+  "name": "Studieassistenten - AI Study Assistant",
+  "short_name": "Studieassistenten",
+  "description": "AI-powered study assistant that helps Swedish students create flashcards, practice tests, and summaries from study materials.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#03173d",
+  "theme_color": "#0d6efd",
+  "orientation": "any",
   "prefer_related_applications": false,
+  "categories": ["education", "productivity"],
   "icons": [
     {
       "src": "icon-512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     },
     {
       "src": "icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     }
   ]
 }
