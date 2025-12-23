@@ -1,14 +1,19 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">StudieAssistenten</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+        <a class="navbar-brand" href="" aria-label="StudieAssistenten Home">StudieAssistenten</a>
+        <button title="Navigation menu" 
+                class="navbar-toggler" 
+                @onclick="ToggleNavMenu"
+                aria-controls="main-nav"
+                aria-expanded="@(!collapseNavMenu)"
+                aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
     </div>
 </div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
+<div id="main-nav" class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <nav class="flex-column" aria-label="Main navigation">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="oi oi-home" aria-hidden="true"></span> Home

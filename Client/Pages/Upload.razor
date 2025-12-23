@@ -27,8 +27,9 @@
                     <InputFile id="fileInput" 
                               OnChange="@HandleFileSelected" 
                               class="form-control" 
-                              accept=".pdf,.jpg,.jpeg,.png,.txt,.docx" />
-                    <div class="form-text">
+                              accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
+                              aria-describedby="fileInputHelp" />
+                    <div id="fileInputHelp" class="form-text">
                         Supported formats: PDF, Images (JPG, PNG), Text files (TXT, DOCX) - Max 50MB
                     </div>
                 </div>
@@ -51,15 +52,17 @@
 
                 @if (!string.IsNullOrEmpty(errorMessage))
                 {
-                    <div class="alert alert-danger" role="alert">
-                        @errorMessage
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert" aria-live="assertive">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>@errorMessage
+                        <button type="button" class="btn-close" @onclick="@(() => errorMessage = null)" aria-label="Close"></button>
                     </div>
                 }
 
                 @if (!string.IsNullOrEmpty(successMessage))
                 {
-                    <div class="alert alert-success" role="alert">
-                        @successMessage
+                    <div class="alert alert-success alert-dismissible fade show" role="alert" aria-live="polite">
+                        <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+                        <button type="button" class="btn-close" @onclick="@(() => successMessage = null)" aria-label="Close"></button>
                     </div>
                 }
 
