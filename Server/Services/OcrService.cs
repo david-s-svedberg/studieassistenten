@@ -38,7 +38,7 @@ public class TesseractOcrService : IOcrService
         }
     }
 
-    public async Task<string> ExtractTextFromImageAsync(string imagePath, string language = "swe")
+    public Task<string> ExtractTextFromImageAsync(string imagePath, string language = "swe")
     {
         if (!File.Exists(imagePath))
         {
@@ -77,10 +77,10 @@ public class TesseractOcrService : IOcrService
             if (string.IsNullOrWhiteSpace(text))
             {
                 _logger.LogWarning("OCR returned empty text for file: {FilePath}", imagePath);
-                return string.Empty;
+                return Task.FromResult(string.Empty);
             }
 
-            return text.Trim();
+            return Task.FromResult(text.Trim());
         }
         catch (Exception ex)
         {
