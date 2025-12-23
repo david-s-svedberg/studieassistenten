@@ -16,6 +16,7 @@ builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IOcrService, TesseractOcrService>();
 builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
 builder.Services.AddScoped<IAiContentGenerationService, AiContentGenerationService>();
+builder.Services.AddScoped<IFlashcardPdfGenerationService, FlashcardPdfGenerationService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();

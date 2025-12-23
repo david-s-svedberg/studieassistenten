@@ -61,6 +61,8 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
 {(string.IsNullOrWhiteSpace(teacherInstructions) ? "" : $"\nAdditional instructions: {teacherInstructions}")}";
 
         _logger.LogInformation("Generating flashcards for document {DocumentId}", documentId);
+        _logger.LogInformation("Using model: {Model}, MaxTokens: {MaxTokens}", _model, _maxTokens);
+        _logger.LogInformation("Text length: {TextLength} characters", document.ExtractedText?.Length ?? 0);
 
         var messages = new List<Message>
         {
@@ -77,9 +79,39 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
             System = new List<SystemMessage> { new SystemMessage(systemPrompt) }
         };
 
-        var response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+        _logger.LogInformation("Calling Anthropic API with model: {Model}", parameters.Model);
+        
+        MessageResponse response;
+        try
+        {
+            response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+            _logger.LogInformation("API call successful, response ID: {Id}", response.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Anthropic API call failed. Model: {Model}, Error: {ErrorMessage}", _model, ex.Message);
+            throw;
+        }
         var content = (response.Content.FirstOrDefault() as TextContent)?.Text ?? string.Empty;
         _logger.LogInformation("Received flashcards response: {Length} characters", content.Length);
+
+        // Remove markdown code fences if present
+        content = content.Trim();
+        if (content.StartsWith("```json"))
+        {
+            content = content.Substring(7); // Remove ```json
+        }
+        else if (content.StartsWith("```"))
+        {
+            content = content.Substring(3); // Remove ```
+        }
+        if (content.EndsWith("```"))
+        {
+            content = content.Substring(0, content.Length - 3); // Remove trailing ```
+        }
+        content = content.Trim();
+        
+        _logger.LogInformation("Cleaned JSON content: {Content}", content.Length > 200 ? content.Substring(0, 200) + "..." : content);
 
         // Parse the JSON response
         var flashcardsData = JsonSerializer.Deserialize<List<FlashcardData>>(content, new JsonSerializerOptions 

@@ -171,4 +171,46 @@ public class ContentGenerationController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpGet("{id}/pdf")]
+    public async Task<IActionResult> DownloadFlashcardsPdf(int id)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var pdfService = scope.ServiceProvider.GetRequiredService<IFlashcardPdfGenerationService>();
+
+        var content = await context.GeneratedContents
+            .Include(gc => gc.Flashcards)
+            .FirstOrDefaultAsync(gc => gc.Id == id);
+
+        if (content == null)
+        {
+            return NotFound();
+        }
+
+        if (content.ProcessingType != ProcessingType.Flashcards)
+        {
+            return BadRequest(new { message = "PDF generation is only available for flashcards" });
+        }
+
+        if (content.Flashcards == null || !content.Flashcards.Any())
+        {
+            return BadRequest(new { message = "No flashcards found for this content" });
+        }
+
+        try
+        {
+            var pdfBytes = pdfService.GenerateFlashcardPdf(content);
+            var fileName = $"flashcards_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+            
+            _logger.LogInformation("Generated PDF for content {ContentId}", id);
+            
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating PDF for content {ContentId}", id);
+            return StatusCode(500, new { message = "Error generating PDF" });
+        }
+    }
 }

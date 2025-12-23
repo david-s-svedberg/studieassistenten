@@ -262,9 +262,17 @@
                                                         }
                                                     </small>
                                                 </div>
-                                                <button class="btn btn-sm btn-primary" @onclick="@(() => ViewGeneratedContent(content.Id))">
-                                                    View
-                                                </button>
+                                                <div>
+                                                    <button class="btn btn-sm btn-primary me-1" @onclick="@(() => ViewGeneratedContent(content.Id))">
+                                                        <i class="bi bi-eye"></i> View
+                                                    </button>
+                                                    @if (content.ProcessingType == ProcessingType.Flashcards && content.FlashcardsCount > 0)
+                                                    {
+                                                        <a href="@GetPdfDownloadUrl(content.Id)" class="btn btn-sm btn-success" download>
+                                                            <i class="bi bi-file-pdf"></i> PDF
+                                                        </a>
+                                                    }
+                                                </div>
                                             </div>
                                         </div>
                                     }
@@ -310,6 +318,12 @@
                             }
                         </div>
                         <div class="modal-footer">
+                            @if (selectedContent.ProcessingType == ProcessingType.Flashcards && selectedContent.FlashcardsCount > 0)
+                            {
+                                <a href="@GetPdfDownloadUrl(selectedContent.Id)" class="btn btn-success" download>
+                                    <i class="bi bi-file-pdf"></i> Download PDF
+                                </a>
+                            }
                             <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
                         </div>
                     </div>
@@ -439,17 +453,35 @@
         if (document == null) return;
 
         isProcessing = true;
+        StateHasChanged();
+        
         var success = await DocumentService.TriggerOcrProcessingAsync(DocumentId);
         
         if (success)
         {
-            document.Status = DocumentStatus.OcrInProgress;
-            // Poll for updates
-            await Task.Delay(2000);
-            await LoadDocument();
+            // Poll continuously until processing completes
+            var maxAttempts = 60; // 2 minutes max (60 * 2 seconds)
+            var attempts = 0;
+            
+            while (attempts < maxAttempts)
+            {
+                await Task.Delay(2000);
+                await LoadDocument();
+                StateHasChanged();
+                
+                // Check if processing is complete
+                if (document.Status != DocumentStatus.OcrInProgress && 
+                    document.Status != DocumentStatus.Uploaded)
+                {
+                    break;
+                }
+                
+                attempts++;
+            }
         }
         
         isProcessing = false;
+        StateHasChanged();
     }
 
     private void StartEditing()
@@ -506,5 +538,10 @@
             len = len / 1024;
         }
         return $"{len:0.##} {sizes[order]}";
+    }
+
+    private string GetPdfDownloadUrl(int contentId)
+    {
+        return $"{Navigation.BaseUri}api/ContentGeneration/{contentId}/pdf";
     }
 }
