@@ -17,7 +17,12 @@ public class GenerateContentRequestDto
     public int? NumberOfItems { get; set; }
     
     /// <summary>
-    /// Optional: Additional parameters for content generation
+    /// Optional: Additional instructions for content generation (teacher/student notes)
     /// </summary>
     public string? AdditionalInstructions { get; set; }
+    
+    /// <summary>
+    /// Optional: Teacher-specific instructions
+    /// </summary>
+    public string? TeacherInstructions { get; set; }
 }

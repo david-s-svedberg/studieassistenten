@@ -24,4 +24,9 @@ public class GeneratedContent
     /// Optional title or subject for this content
     /// </summary>
     public string? Title { get; set; }
+    
+    /// <summary>
+    /// Collection of flashcards if ProcessingType is Flashcards
+    /// </summary>
+    public ICollection<Flashcard> Flashcards { get; set; } = new List<Flashcard>();
 }

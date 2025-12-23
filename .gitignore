@@ -211,3 +211,5 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+# API Keys and Secrets
+**/appsettings.Development.json

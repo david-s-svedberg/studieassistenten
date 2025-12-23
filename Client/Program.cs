@@ -11,5 +11,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 
 // Register application services
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<ContentGenerationService>();
 
 await builder.Build().RunAsync();

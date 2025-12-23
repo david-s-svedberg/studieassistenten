@@ -171,8 +171,151 @@
                         }
                     </div>
                 </div>
+
+                @* AI Content Generation Section *@
+                @if (!string.IsNullOrWhiteSpace(document.ExtractedText))
+                {
+                    <div class="card mt-4">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">🤖 AI-Powered Study Tools</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">Generate study materials from the extracted text using AI</p>
+                            
+                            <div class="mb-3">
+                                <label for="teacherInstructions" class="form-label">Additional Instructions (Optional)</label>
+                                <textarea class="form-control" id="teacherInstructions" rows="2" 
+                                          @bind="teacherInstructions" 
+                                          placeholder="E.g., 'Focus on chapters 1-3' or 'Include questions about terminology'"></textarea>
+                            </div>
+
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <button class="btn btn-primary w-100" @onclick="@(() => GenerateContent(ProcessingType.Flashcards))" disabled="@isGenerating">
+                                        @if (isGenerating && generatingType == ProcessingType.Flashcards)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-card-list me-2"></i>
+                                        }
+                                        Generate Flashcards
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-warning w-100" @onclick="@(() => GenerateContent(ProcessingType.PracticeTest))" disabled="@isGenerating">
+                                        @if (isGenerating && generatingType == ProcessingType.PracticeTest)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-clipboard-check me-2"></i>
+                                        }
+                                        Generate Practice Test
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-success w-100" @onclick="@(() => GenerateContent(ProcessingType.Summary))" disabled="@isGenerating">
+                                        @if (isGenerating && generatingType == ProcessingType.Summary)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-file-text me-2"></i>
+                                        }
+                                        Generate Summary
+                                    </button>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(generationError))
+                            {
+                                <div class="alert alert-danger mt-3">
+                                    @generationError
+                                </div>
+                            }
+
+                            @if (generatedContents.Any())
+                            {
+                                <hr class="my-4" />
+                                <h6>Generated Content</h6>
+                                <div class="list-group">
+                                    @foreach (var content in generatedContents)
+                                    {
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="mb-1">
+                                                        @content.Title
+                                                        <span class="badge @GetProcessingTypeBadge(content.ProcessingType) ms-2">
+                                                            @content.ProcessingType
+                                                        </span>
+                                                    </h6>
+                                                    <small class="text-muted">
+                                                        Generated @content.GeneratedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                                        @if (content.FlashcardsCount > 0)
+                                                        {
+                                                            <span> • @content.FlashcardsCount flashcards</span>
+                                                        }
+                                                    </small>
+                                                </div>
+                                                <button class="btn btn-sm btn-primary" @onclick="@(() => ViewGeneratedContent(content.Id))">
+                                                    View
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
         </div>
+
+        @* Generated Content Modal *@
+        @if (selectedContent != null)
+        {
+            <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">@selectedContent.Title</h5>
+                            <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            @if (selectedContent.ProcessingType == ProcessingType.Flashcards && selectedContent.Flashcards.Any())
+                            {
+                                <div class="flashcards-container">
+                                    @foreach (var flashcard in selectedContent.Flashcards)
+                                    {
+                                        <div class="card mb-3">
+                                            <div class="card-body">
+                                                <h6 class="text-primary">Question @(flashcard.Order + 1)</h6>
+                                                <p><strong>@flashcard.Question</strong></p>
+                                                <hr />
+                                                <h6 class="text-success">Answer</h6>
+                                                <p>@flashcard.Answer</p>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div style="white-space: pre-wrap;">@selectedContent.Content</div>
+                            }
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
     }
 </div>
 
@@ -186,10 +329,20 @@
     private bool isEditing = false;
     private bool isSaving = false;
     private string editedText = string.Empty;
+    private bool isGenerating = false;
+    private ProcessingType? generatingType = null;
+    private string teacherInstructions = string.Empty;
+    private string generationError = string.Empty;
+    private List<GeneratedContentDto> generatedContents = new();
+    private GeneratedContentDto? selectedContent = null;
+
+    [Inject]
+    private ContentGenerationService ContentGenerationService { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDocument();
+        await LoadGeneratedContents();
     }
 
     private async Task LoadDocument()
@@ -197,6 +350,83 @@
         isLoading = true;
         document = await DocumentService.GetDocumentAsync(DocumentId);
         isLoading = false;
+    }
+
+    private async Task LoadGeneratedContents()
+    {
+        try
+        {
+            generatedContents = await ContentGenerationService.GetDocumentContentsAsync(DocumentId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading generated contents: {ex.Message}");
+            generatedContents = new();
+        }
+    }
+
+    private async Task GenerateContent(ProcessingType type)
+    {
+        if (document == null) return;
+
+        isGenerating = true;
+        generatingType = type;
+        generationError = string.Empty;
+
+        try
+        {
+            var request = new GenerateContentRequestDto
+            {
+                DocumentId = DocumentId,
+                ProcessingType = type,
+                TeacherInstructions = string.IsNullOrWhiteSpace(teacherInstructions) ? null : teacherInstructions
+            };
+
+            var result = await ContentGenerationService.GenerateContentAsync(request);
+            
+            if (result != null)
+            {
+                await LoadGeneratedContents();
+                teacherInstructions = string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            generationError = $"Error generating content: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+            generatingType = null;
+        }
+    }
+
+    private async Task ViewGeneratedContent(int contentId)
+    {
+        try
+        {
+            selectedContent = await ContentGenerationService.GetContentAsync(contentId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading content: {ex.Message}");
+        }
+    }
+
+    private void CloseModal()
+    {
+        selectedContent = null;
+    }
+
+    private string GetProcessingTypeBadge(ProcessingType type)
+    {
+        return type switch
+        {
+            ProcessingType.Flashcards => "bg-primary",
+            ProcessingType.PracticeTest => "bg-warning text-dark",
+            ProcessingType.Summary => "bg-success",
+            _ => "bg-secondary"
+        };
     }
 
     private async Task RefreshDocument()
