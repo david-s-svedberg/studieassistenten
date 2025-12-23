@@ -1,5 +1,5 @@
-using Azure.AI.OpenAI;
-using OpenAI.Chat;
+using Anthropic.SDK;
+using Anthropic.SDK.Messaging;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
@@ -17,7 +17,7 @@ public interface IAiContentGenerationService
 
 public class AiContentGenerationService : IAiContentGenerationService
 {
-    private readonly ChatClient _chatClient;
+    private readonly AnthropicClient _anthropicClient;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<AiContentGenerationService> _logger;
     private readonly string _model;
@@ -31,18 +31,17 @@ public class AiContentGenerationService : IAiContentGenerationService
         _context = context;
         _logger = logger;
 
-        var apiKey = configuration["OpenAI:ApiKey"] 
-            ?? throw new InvalidOperationException("OpenAI API key not configured");
-        _model = configuration["OpenAI:Model"] ?? "gpt-4o-mini";
-        _maxTokens = int.Parse(configuration["OpenAI:MaxTokens"] ?? "4000");
+        var apiKey = configuration["Anthropic:ApiKey"] 
+            ?? throw new InvalidOperationException("Anthropic API key not configured");
+        _model = configuration["Anthropic:Model"] ?? "claude-3-5-sonnet-20241022";
+        _maxTokens = int.Parse(configuration["Anthropic:MaxTokens"] ?? "4000");
 
         if (apiKey == "your-api-key-here" || string.IsNullOrWhiteSpace(apiKey))
         {
-            throw new InvalidOperationException("Please set your OpenAI API key in appsettings.Development.json");
+            throw new InvalidOperationException("Please set your Anthropic API key in appsettings.Development.json");
         }
 
-        var openAiClient = new AzureOpenAIClient(new Uri("https://api.openai.com/v1"), new System.ClientModel.ApiKeyCredential(apiKey));
-        _chatClient = openAiClient.GetChatClient(_model);
+        _anthropicClient = new AnthropicClient(new APIAuthentication(apiKey));
     }
 
     public async Task<GeneratedContent> GenerateFlashcardsAsync(int documentId, string? teacherInstructions = null)
@@ -63,19 +62,23 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
 
         _logger.LogInformation("Generating flashcards for document {DocumentId}", documentId);
 
-        var response = await _chatClient.CompleteChatAsync(
-            new ChatMessage[]
-            {
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
-            },
-            new ChatCompletionOptions
-            {
-                MaxOutputTokenCount = _maxTokens,
-                Temperature = 0.7f
-            });
+        var messages = new List<Message>
+        {
+            new Message(RoleType.User, userPrompt)
+        };
 
-        var content = response.Value.Content[0].Text;
+        var parameters = new MessageParameters
+        {
+            Messages = messages,
+            MaxTokens = _maxTokens,
+            Model = _model,
+            Stream = false,
+            Temperature = 0.7m,
+            System = new List<SystemMessage> { new SystemMessage(systemPrompt) }
+        };
+
+        var response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+        var content = (response.Content.FirstOrDefault() as TextContent)?.Text ?? string.Empty;
         _logger.LogInformation("Received flashcards response: {Length} characters", content.Length);
 
         // Parse the JSON response
@@ -132,19 +135,23 @@ Include a mix of question types (multiple choice, short answer) and provide an a
 
         _logger.LogInformation("Generating practice test for document {DocumentId}", documentId);
 
-        var response = await _chatClient.CompleteChatAsync(
-            new ChatMessage[]
-            {
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
-            },
-            new ChatCompletionOptions
-            {
-                MaxOutputTokenCount = _maxTokens,
-                Temperature = 0.7f
-            });
+        var messages = new List<Message>
+        {
+            new Message(RoleType.User, userPrompt)
+        };
 
-        var content = response.Value.Content[0].Text;
+        var parameters = new MessageParameters
+        {
+            Messages = messages,
+            MaxTokens = _maxTokens,
+            Model = _model,
+            Stream = false,
+            Temperature = 0.7m,
+            System = new List<SystemMessage> { new SystemMessage(systemPrompt) }
+        };
+
+        var response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+        var content = (response.Content.FirstOrDefault() as TextContent)?.Text ?? string.Empty;
 
         var generatedContent = new GeneratedContent
         {
@@ -180,19 +187,23 @@ Focus on what students need to know for studying and test preparation.";
 
         _logger.LogInformation("Generating summary for document {DocumentId}", documentId);
 
-        var response = await _chatClient.CompleteChatAsync(
-            new ChatMessage[]
-            {
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
-            },
-            new ChatCompletionOptions
-            {
-                MaxOutputTokenCount = _maxTokens,
-                Temperature = 0.5f
-            });
+        var messages = new List<Message>
+        {
+            new Message(RoleType.User, userPrompt)
+        };
 
-        var content = response.Value.Content[0].Text;
+        var parameters = new MessageParameters
+        {
+            Messages = messages,
+            MaxTokens = _maxTokens,
+            Model = _model,
+            Stream = false,
+            Temperature = 0.5m,
+            System = new List<SystemMessage> { new SystemMessage(systemPrompt) }
+        };
+
+        var response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+        var content = (response.Content.FirstOrDefault() as TextContent)?.Text ?? string.Empty;
 
         var generatedContent = new GeneratedContent
         {
