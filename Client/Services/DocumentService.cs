@@ -12,6 +12,8 @@ public interface IDocumentService
     Task<List<DocumentDto>> GetAllDocumentsAsync();
     Task<DocumentDto?> GetDocumentAsync(int documentId);
     Task<bool> DeleteDocumentAsync(int documentId);
+    Task<bool> TriggerOcrProcessingAsync(int documentId);
+    Task<bool> UpdateExtractedTextAsync(int documentId, string text);
 }
 
 public class DocumentService : IDocumentService
@@ -101,6 +103,34 @@ public class DocumentService : IDocumentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting document {DocumentId}", documentId);
+            return false;
+        }
+    }
+
+    public async Task<bool> TriggerOcrProcessingAsync(int documentId)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"api/processing/{documentId}/extract", null);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error triggering OCR for document {DocumentId}", documentId);
+            return false;
+        }
+    }
+
+    public async Task<bool> UpdateExtractedTextAsync(int documentId, string text)
+    {
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync($"api/processing/{documentId}/text", new { Text = text });
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating text for document {DocumentId}", documentId);
             return false;
         }
     }

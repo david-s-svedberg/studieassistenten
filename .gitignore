@@ -116,6 +116,10 @@ local.settings.json
 uploads/
 !uploads/.gitkeep
 
+# Tesseract language data files (large files)
+tessdata/
+!tessdata/.gitkeep
+
 # Blazor specific
 **/.DS_Store
 **/wwwroot/css/app.css

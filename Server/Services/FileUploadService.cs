@@ -15,6 +15,7 @@ public interface IFileUploadService
     Task<DocumentDto?> GetDocumentAsync(int documentId);
     Task<List<DocumentDto>> GetAllDocumentsAsync();
     Task<bool> DeleteDocumentAsync(int documentId);
+    Task<bool> UpdateExtractedTextAsync(int documentId, string extractedText);
 }
 
 public class FileUploadService : IFileUploadService
@@ -125,6 +126,21 @@ public class FileUploadService : IFileUploadService
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Document deleted: {DocumentId}", documentId);
+        return true;
+    }
+
+    public async Task<bool> UpdateExtractedTextAsync(int documentId, string extractedText)
+    {
+        var document = await _context.StudyDocuments
+            .FirstOrDefaultAsync(d => d.Id == documentId);
+
+        if (document == null)
+            return false;
+
+        document.ExtractedText = extractedText;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Extracted text updated for document: {DocumentId}", documentId);
         return true;
     }
 

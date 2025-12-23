@@ -13,6 +13,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Register application services
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
+builder.Services.AddScoped<IOcrService, TesseractOcrService>();
+builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
