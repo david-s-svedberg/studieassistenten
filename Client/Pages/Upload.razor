@@ -109,6 +109,14 @@
             errorMessage = null;
             successMessage = null;
 
+            // Validate file size on client side
+            const long maxFileSize = 50 * 1024 * 1024; // 50MB
+            if (selectedFile.Size > maxFileSize)
+            {
+                errorMessage = $"File size ({FormatFileSize(selectedFile.Size)}) exceeds maximum allowed size of 50MB";
+                return;
+            }
+
             // Open the file stream
             using var stream = selectedFile.OpenReadStream(maxAllowedSize: 52428800); // 50MB
 
@@ -134,12 +142,16 @@
             }
             else
             {
-                errorMessage = "Failed to upload file. Please try again.";
+                errorMessage = "Failed to upload file. Please check the server logs for more details.";
             }
+        }
+        catch (IOException ioEx) when (ioEx.Message.Contains("The file is too large"))
+        {
+            errorMessage = "The file is too large. Maximum file size is 50MB.";
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error: {ex.Message}";
+            errorMessage = $"Upload error: {ex.Message}";
         }
         finally
         {

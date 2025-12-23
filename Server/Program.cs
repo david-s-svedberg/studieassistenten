@@ -18,6 +18,17 @@ builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService
 builder.Services.AddScoped<IAiContentGenerationService, AiContentGenerationService>();
 builder.Services.AddScoped<IFlashcardPdfGenerationService, FlashcardPdfGenerationService>();
 
+// Configure Kestrel to allow larger request body sizes (60MB)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 60 * 1024 * 1024; // 60 MB
+});
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = 60 * 1024 * 1024; // 60 MB
+});
+
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
