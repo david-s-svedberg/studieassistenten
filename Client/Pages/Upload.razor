@@ -1,0 +1,162 @@
+@page "/upload"
+@using StudieAssistenten.Client.Services
+@using StudieAssistenten.Shared.DTOs
+@inject IDocumentService DocumentService
+@inject NavigationManager Navigation
+
+<PageTitle>Upload Material - Studieassistenten</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">📚 Upload Study Material</h1>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            @if (isUploading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Uploading...</span>
+                    </div>
+                    <p class="mt-3">Uploading your material...</p>
+                </div>
+            }
+            else
+            {
+                <div class="mb-4">
+                    <label for="fileInput" class="form-label">Select File</label>
+                    <InputFile id="fileInput" 
+                              OnChange="@HandleFileSelected" 
+                              class="form-control" 
+                              accept=".pdf,.jpg,.jpeg,.png,.txt,.docx" />
+                    <div class="form-text">
+                        Supported formats: PDF, Images (JPG, PNG), Text files (TXT, DOCX) - Max 50MB
+                    </div>
+                </div>
+
+                @if (selectedFile != null)
+                {
+                    <div class="alert alert-info">
+                        <strong>Selected file:</strong> @selectedFile.Name (@FormatFileSize(selectedFile.Size))
+                    </div>
+                }
+
+                <div class="mb-4">
+                    <label for="instructions" class="form-label">Teacher Instructions (Optional)</label>
+                    <textarea id="instructions" 
+                             class="form-control" 
+                             rows="4" 
+                             @bind="teacherInstructions"
+                             placeholder="Enter any specific instructions from your teacher about what to focus on..."></textarea>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @errorMessage
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(successMessage))
+                {
+                    <div class="alert alert-success" role="alert">
+                        @successMessage
+                    </div>
+                }
+
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary btn-lg" 
+                           @onclick="UploadFile" 
+                           disabled="@(selectedFile == null || isUploading)">
+                        <i class="bi bi-cloud-upload"></i> Upload Material
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <h3>What happens next?</h3>
+        <ol class="list-group list-group-numbered">
+            <li class="list-group-item">Your material will be uploaded and analyzed</li>
+            <li class="list-group-item">If it's an image, OCR will extract the text</li>
+            <li class="list-group-item">You can then generate flashcards, practice tests, or summaries</li>
+        </ol>
+    </div>
+</div>
+
+@code {
+    private IBrowserFile? selectedFile;
+    private string? teacherInstructions;
+    private bool isUploading = false;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private async Task UploadFile()
+    {
+        if (selectedFile == null)
+            return;
+
+        try
+        {
+            isUploading = true;
+            errorMessage = null;
+            successMessage = null;
+
+            // Open the file stream
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 52428800); // 50MB
+
+            var result = await DocumentService.UploadDocumentAsync(
+                stream,
+                selectedFile.Name,
+                selectedFile.ContentType,
+                selectedFile.Size,
+                teacherInstructions
+            );
+
+            if (result != null)
+            {
+                successMessage = $"✅ Successfully uploaded '{selectedFile.Name}'!";
+                
+                // Clear the form
+                selectedFile = null;
+                teacherInstructions = null;
+                
+                // Navigate to documents list after a short delay
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/documents");
+            }
+            else
+            {
+                errorMessage = "Failed to upload file. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}

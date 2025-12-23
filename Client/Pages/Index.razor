@@ -1,0 +1,77 @@
+﻿@page "/"
+@inject NavigationManager Navigation
+
+<PageTitle>Studieassistenten - Smart Study Assistant</PageTitle>
+
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h1 class="display-3 fw-bold">📚 Studieassistenten</h1>
+        <p class="lead text-muted">Your AI-powered study companion for Swedish students</p>
+    </div>
+
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-5 text-center">
+                    <h2 class="mb-4">How it works</h2>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="feature-icon bg-primary bg-gradient text-white rounded-circle mb-3 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                                <span style="font-size: 2rem;">📤</span>
+                            </div>
+                            <h5>1. Upload</h5>
+                            <p class="text-muted">Upload your study materials - images, PDFs, or text documents</p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="feature-icon bg-success bg-gradient text-white rounded-circle mb-3 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                                <span style="font-size: 2rem;">🤖</span>
+                            </div>
+                            <h5>2. Process</h5>
+                            <p class="text-muted">AI extracts text (OCR) and understands your material in Swedish</p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="feature-icon bg-info bg-gradient text-white rounded-circle mb-3 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+                                <span style="font-size: 2rem;">✨</span>
+                            </div>
+                            <h5>3. Generate</h5>
+                            <p class="text-muted">Create flashcards, practice tests, or condensed summaries</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-5">
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h4 class="card-title">🎴 Flashcards</h4>
+                    <p class="card-text">Generate question-answer flashcards in the format you need, ready for PDF export</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h4 class="card-title">📝 Practice Tests</h4>
+                    <p class="card-text">Create multiple-choice practice tests to prepare for your exams</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h4 class="card-title">📖 Summaries</h4>
+                    <p class="card-text">Get condensed summaries highlighting the most important information</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center">
+        <button class="btn btn-primary btn-lg px-5 py-3" @onclick="@(() => Navigation.NavigateTo("/upload"))">
+            <span style="font-size: 1.2rem;">Get Started - Upload Your First Material</span>
+        </button>
+    </div>
+</div>
