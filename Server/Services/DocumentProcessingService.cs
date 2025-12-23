@@ -4,6 +4,10 @@ using StudieAssistenten.Server.Data;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using Docnet.Core;
+using Docnet.Core.Models;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace StudieAssistenten.Server.Services;
 
@@ -118,12 +122,11 @@ public class DocumentProcessingService : IDocumentProcessingService
 
             var extractedText = textBuilder.ToString().Trim();
 
-            // If PDF has no text (scanned PDF), we would need to convert to images and use OCR
-            // For now, we'll just return what we got
+            // If PDF has no text (scanned PDF), convert pages to images and use OCR
             if (string.IsNullOrWhiteSpace(extractedText))
             {
-                _logger.LogWarning("PDF appears to be scanned or has no text content");
-                // TODO: Convert PDF pages to images and run OCR
+                _logger.LogWarning("PDF appears to be scanned or has no text content. Converting to images for OCR...");
+                extractedText = await ProcessScannedPdfAsync(filePath);
             }
 
             return extractedText;
@@ -132,6 +135,79 @@ public class DocumentProcessingService : IDocumentProcessingService
         {
             _logger.LogError(ex, "Error extracting text from PDF: {FilePath}", filePath);
             throw;
+        }
+    }
+
+    private async Task<string> ProcessScannedPdfAsync(string filePath)
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"pdf_ocr_{Guid.NewGuid()}");
+        
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+            _logger.LogInformation("Converting PDF to images for OCR: {FilePath}", filePath);
+
+            using var docReader = DocLib.Instance.GetDocReader(filePath, new PageDimensions(2000, 2000));
+            var textBuilder = new System.Text.StringBuilder();
+
+            for (int i = 0; i < docReader.GetPageCount(); i++)
+            {
+                _logger.LogInformation("Processing page {PageNum} of {TotalPages}", i + 1, docReader.GetPageCount());
+
+                using var pageReader = docReader.GetPageReader(i);
+                var rawBytes = pageReader.GetImage();
+
+                var width = pageReader.GetPageWidth();
+                var height = pageReader.GetPageHeight();
+
+                // Save as temporary PNG file
+                var tempImagePath = Path.Combine(tempDir, $"page_{i}.png");
+                
+                // Convert raw bytes to PNG using ImageSharp
+                using (var image = Image.LoadPixelData<Bgra32>(rawBytes, width, height))
+                {
+                    await image.SaveAsPngAsync(tempImagePath);
+                }
+
+                // Run OCR on the image
+                var pageText = await _ocrService.ExtractTextFromImageAsync(tempImagePath, "swe");
+                
+                if (!string.IsNullOrWhiteSpace(pageText))
+                {
+                    textBuilder.AppendLine($"--- Page {i + 1} ---");
+                    textBuilder.AppendLine(pageText);
+                    textBuilder.AppendLine();
+                }
+
+                // Clean up temp image immediately
+                File.Delete(tempImagePath);
+            }
+
+            var result = textBuilder.ToString().Trim();
+            _logger.LogInformation("Scanned PDF OCR completed. Extracted {Length} characters from {PageCount} pages",
+                result.Length, docReader.GetPageCount());
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing scanned PDF: {FilePath}", filePath);
+            throw;
+        }
+        finally
+        {
+            // Clean up temp directory
+            if (Directory.Exists(tempDir))
+            {
+                try
+                {
+                    Directory.Delete(tempDir, true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete temporary directory: {TempDir}", tempDir);
+                }
+            }
         }
     }
 

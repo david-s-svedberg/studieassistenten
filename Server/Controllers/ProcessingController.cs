@@ -7,17 +7,14 @@ namespace StudieAssistenten.Server.Controllers;
 [Route("api/[controller]")]
 public class ProcessingController : ControllerBase
 {
-    private readonly IDocumentProcessingService _processingService;
-    private readonly IFileUploadService _fileUploadService;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ProcessingController> _logger;
 
     public ProcessingController(
-        IDocumentProcessingService processingService,
-        IFileUploadService fileUploadService,
+        IServiceProvider serviceProvider,
         ILogger<ProcessingController> logger)
     {
-        _processingService = processingService;
-        _fileUploadService = fileUploadService;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -25,16 +22,18 @@ public class ProcessingController : ControllerBase
     /// Trigger OCR/text extraction for a document
     /// </summary>
     [HttpPost("{documentId}/extract")]
-    public async Task<IActionResult> ExtractText(int documentId)
+    public IActionResult ExtractText(int documentId)
     {
         try
         {
-            // Start processing in background
+            // Start processing in background with a new scope
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await _processingService.ProcessDocumentAsync(documentId);
+                    using var scope = _serviceProvider.CreateScope();
+                    var processingService = scope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();
+                    await processingService.ProcessDocumentAsync(documentId);
                 }
                 catch (Exception ex)
                 {
@@ -59,7 +58,9 @@ public class ProcessingController : ControllerBase
     {
         try
         {
-            var result = await _fileUploadService.UpdateExtractedTextAsync(documentId, request.Text);
+            using var scope = _serviceProvider.CreateScope();
+            var fileUploadService = scope.ServiceProvider.GetRequiredService<IFileUploadService>();
+            var result = await fileUploadService.UpdateExtractedTextAsync(documentId, request.Text);
             if (!result)
             {
                 return NotFound();
