@@ -13,6 +13,7 @@ public interface IAiContentGenerationService
     Task<GeneratedContent> GenerateFlashcardsAsync(int documentId, string? teacherInstructions = null);
     Task<GeneratedContent> GeneratePracticeTestAsync(int documentId, string? teacherInstructions = null);
     Task<GeneratedContent> GenerateSummaryAsync(int documentId, string? teacherInstructions = null);
+    Task<string> SuggestTestNameAsync(int testId);
 }
 
 public class AiContentGenerationService : IAiContentGenerationService
@@ -252,6 +253,83 @@ Focus on what students need to know for studying and test preparation.";
         _logger.LogInformation("Created summary for document {DocumentId}", documentId);
 
         return generatedContent;
+    }
+
+    public async Task<string> SuggestTestNameAsync(int testId)
+    {
+        // Get all documents for this test
+        var documents = await _context.StudyDocuments
+            .Where(d => d.TestId == testId && d.ExtractedText != null)
+            .ToListAsync();
+
+        if (!documents.Any())
+        {
+            _logger.LogWarning("No documents with extracted text found for test {TestId}", testId);
+            return $"Test - {DateTime.Now:yyyy-MM-dd}";
+        }
+
+        // Combine text from all documents (limit to avoid token limits)
+        var combinedText = string.Join("\n\n", documents
+            .Select(d => d.ExtractedText?.Substring(0, Math.Min(d.ExtractedText.Length, 1000)))
+            .Where(t => !string.IsNullOrWhiteSpace(t)));
+
+        if (string.IsNullOrWhiteSpace(combinedText))
+        {
+            return $"Test - {DateTime.Now:yyyy-MM-dd}";
+        }
+
+        var systemPrompt = @"You are an educational assistant that creates concise, descriptive test names.
+Based on the content provided, suggest a short, clear test name in Swedish (max 50 characters).
+The name should indicate the subject or topic being covered.
+Respond with ONLY the test name, nothing else.
+Examples: 'Fotosyntesen och Cellbiologi', 'Svenska Grammatik - Verb', 'Andra Världskriget 1939-1945'";
+
+        var userPrompt = $@"Based on this study material, suggest a concise test name (max 50 characters):
+
+{combinedText}";
+
+        _logger.LogInformation("Suggesting test name for test {TestId}", testId);
+
+        var messages = new List<Message>
+        {
+            new Message(RoleType.User, userPrompt)
+        };
+
+        var parameters = new MessageParameters
+        {
+            Messages = messages,
+            MaxTokens = 100, // Short response needed
+            Model = _model,
+            Stream = false,
+            Temperature = 0.7m,
+            System = new List<SystemMessage> { new SystemMessage(systemPrompt) }
+        };
+
+        try
+        {
+            var response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+            var suggestedName = (response.Content.FirstOrDefault() as TextContent)?.Text?.Trim() ?? string.Empty;
+
+            // Remove quotes if present
+            suggestedName = suggestedName.Trim('"', '\'');
+
+            // Limit length
+            if (suggestedName.Length > 50)
+            {
+                suggestedName = suggestedName.Substring(0, 47) + "...";
+            }
+
+            _logger.LogInformation("Suggested test name for test {TestId}: {Name}", testId, suggestedName);
+
+            return string.IsNullOrWhiteSpace(suggestedName)
+                ? $"Test - {DateTime.Now:yyyy-MM-dd}"
+                : suggestedName;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error suggesting test name for test {TestId}", testId);
+            return $"Test - {DateTime.Now:yyyy-MM-dd}";
+        }
     }
 
     private async Task<StudyDocument> GetDocumentWithTextAsync(int documentId)
