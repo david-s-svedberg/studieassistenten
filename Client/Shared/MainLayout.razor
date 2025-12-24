@@ -3,72 +3,195 @@
 @using StudieAssistenten.Client.Services
 @inject ITestService TestService
 @inject NavigationManager Navigation
+@inject CustomAuthStateProvider AuthStateProvider
+@inject HttpClient Http
 @implements IDisposable
 
-<div class="app-container">
-    @* Left Sidebar - ChatGPT style *@
-    <div class="sidebar-new">
-        <div class="sidebar-header">
-            <h1 class="app-title">StudieAssistenten</h1>
-            <button class="btn btn-primary w-100 mb-3" @onclick="CreateNewTest">
-                <i class="bi bi-plus-lg"></i> New Test
-            </button>
-        </div>
-        
-        <div class="sidebar-content">
-            @if (isLoadingTests)
-            {
-                <div class="text-center py-3">
-                    <div class="spinner-border spinner-border-sm text-light" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
+<AuthorizeView>
+    <Authorized>
+        <div class="app-container">
+            @* Left Sidebar - ChatGPT style *@
+            <div class="sidebar-new">
+                <div class="sidebar-header">
+                    <h1 class="app-title">StudieAssistenten</h1>
+                    <button class="btn btn-primary w-100 mb-3" @onclick="CreateNewTest">
+                        <i class="bi bi-plus-lg"></i> New Test
+                    </button>
                 </div>
-            }
-            else if (tests.Count == 0)
-            {
-                <div class="text-muted text-center py-3">
-                    <small>No tests yet</small>
-                </div>
-            }
-            else
-            {
-                <div class="test-list">
-                    @foreach (var test in tests)
+
+                <div class="sidebar-content">
+                    @if (isLoadingTests)
                     {
-                        <div class="test-item @(IsActiveTest(test.Id) ? "active" : "")" @onclick="() => NavigateToTest(test.Id)">
-                            <div class="test-item-content">
-                                <div class="test-name">@test.Name</div>
-                                <div class="test-meta">
-                                    <small>@test.DocumentCount docs</small>
-                                </div>
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-light" role="status">
+                                <span class="visually-hidden">Loading...</span>
                             </div>
-                            <button class="btn-delete" @onclick:stopPropagation="true" @onclick="() => DeleteTest(test.Id)" title="Delete test">
-                                <i class="bi bi-trash"></i>
+                        </div>
+                    }
+                    else if (tests.Count == 0)
+                    {
+                        <div class="text-muted text-center py-3">
+                            <small>No tests yet</small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="test-list">
+                            @foreach (var test in tests)
+                            {
+                                <div class="test-item @(IsActiveTest(test.Id) ? "active" : "")" @onclick="() => NavigateToTest(test.Id)">
+                                    <div class="test-item-content">
+                                        <div class="test-name">@test.Name</div>
+                                        <div class="test-meta">
+                                            <small>@test.DocumentCount docs</small>
+                                        </div>
+                                    </div>
+                                    <button class="btn-delete" @onclick:stopPropagation="true" @onclick="() => DeleteTest(test.Id)" title="Delete test">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @* User Profile Section *@
+                <div class="sidebar-footer">
+                    @if (currentUser != null)
+                    {
+                        <div class="user-profile">
+                            <div class="user-avatar">
+                                @if (!string.IsNullOrEmpty(currentUser.ProfilePictureUrl))
+                                {
+                                    <img src="@currentUser.ProfilePictureUrl" alt="User avatar" />
+                                }
+                                else
+                                {
+                                    <div class="avatar-placeholder">
+                                        @GetInitials(currentUser.FullName ?? currentUser.Email)
+                                    </div>
+                                }
+                            </div>
+                            <div class="user-info">
+                                <div class="user-name">@(currentUser.FullName ?? "User")</div>
+                                <div class="user-email">@currentUser.Email</div>
+                            </div>
+                            <button class="btn-logout" @onclick="Logout" title="Sign out">
+                                <i class="bi bi-box-arrow-right"></i>
                             </button>
                         </div>
                     }
                 </div>
-            }
-        </div>
-    </div>
+            </div>
 
-    @* Main Content Area *@
-    <div class="main-content">
-        <div class="content-wrapper">
-            @Body
+            @* Main Content Area *@
+            <div class="main-content">
+                <div class="content-wrapper">
+                    @Body
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
-<PwaInstallPrompt />
+        <PwaInstallPrompt />
+    </Authorized>
+    <NotAuthorized>
+        @* Show nothing - App.razor will handle redirect to login *@
+    </NotAuthorized>
+</AuthorizeView>
+
+<style>
+    .sidebar-footer {
+        padding: 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: auto;
+    }
+
+    .user-profile {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .user-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 16px;
+    }
+
+    .user-info {
+        flex: 1;
+        min-width: 0;
+        color: #e5e7eb;
+    }
+
+    .user-name {
+        font-size: 14px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .user-email {
+        font-size: 12px;
+        color: #9ca3af;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .btn-logout {
+        background: transparent;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 6px;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-logout:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #e5e7eb;
+    }
+
+    .btn-logout i {
+        font-size: 18px;
+    }
+</style>
 
 @code {
     private List<TestDto> tests = new();
     private bool isLoadingTests = true;
     private int? currentTestId = null;
+    private UserDto? currentUser;
 
     protected override async Task OnInitializedAsync()
     {
+        currentUser = AuthStateProvider.GetCurrentUser();
         await LoadTests();
         Navigation.LocationChanged += OnLocationChanged;
         UpdateCurrentTestId();
@@ -136,6 +259,42 @@
                 Navigation.NavigateTo("/");
             }
         }
+    }
+
+    private async Task Logout()
+    {
+        try
+        {
+            await Http.PostAsync("api/auth/logout", null);
+            Navigation.NavigateTo("/login", true);
+        }
+        catch (Exception)
+        {
+            // Force navigation even if logout call fails
+            Navigation.NavigateTo("/login", true);
+        }
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return "?";
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        }
+        else if (parts.Length == 1 && parts[0].Length >= 2)
+        {
+            return parts[0].Substring(0, 2).ToUpper();
+        }
+        else if (parts.Length == 1)
+        {
+            return parts[0][0].ToString().ToUpper();
+        }
+
+        return "?";
     }
 
     public void Dispose()
