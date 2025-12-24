@@ -54,7 +54,7 @@ else
                             <h5>Image Preview</h5>
                         </div>
                         <div class="preview-body">
-                            <img src="/uploads/@document.FileName" alt="@document.FileName" class="img-fluid" style="max-height: 500px; object-fit: contain;" />
+                            <img src="/uploads/@document.StoredFileName" alt="@document.FileName" class="img-fluid" style="max-height: 500px; object-fit: contain;" />
                         </div>
                     </div>
                 </div>
@@ -65,12 +65,12 @@ else
                     <div class="preview-card">
                         <div class="preview-header">
                             <h5>PDF Preview</h5>
-                            <a href="/uploads/@document.FileName" target="_blank" class="btn btn-sm btn-outline-light">
+                            <a href="/uploads/@document.StoredFileName" target="_blank" class="btn btn-sm btn-outline-light">
                                 <i class="bi bi-box-arrow-up-right"></i> Open in New Tab
                             </a>
                         </div>
                         <div class="preview-body">
-                            <iframe src="/uploads/@document.FileName" style="width: 100%; height: 600px; border: none;"></iframe>
+                            <iframe src="/uploads/@document.StoredFileName" style="width: 100%; height: 600px; border: none;"></iframe>
                         </div>
                     </div>
                 </div>

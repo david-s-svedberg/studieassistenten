@@ -150,6 +150,9 @@ public class FileUploadService : IFileUploadService
         {
             Id = document.Id,
             FileName = document.FileName,
+            StoredFileName = !string.IsNullOrEmpty(document.OriginalFilePath)
+                ? Path.GetFileName(document.OriginalFilePath)
+                : string.Empty,
             FileSizeBytes = document.FileSizeBytes,
             UploadedAt = document.UploadedAt,
             Status = document.Status,

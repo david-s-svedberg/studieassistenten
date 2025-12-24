@@ -21,16 +21,21 @@ public class AiContentGenerationService : IAiContentGenerationService
     private readonly AnthropicClient _anthropicClient;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<AiContentGenerationService> _logger;
+    private readonly IRateLimitingService _rateLimitingService;
+    private readonly IConfiguration _configuration;
     private readonly string _model;
     private readonly int _maxTokens;
 
     public AiContentGenerationService(
         IConfiguration configuration,
         ApplicationDbContext context,
-        ILogger<AiContentGenerationService> logger)
+        ILogger<AiContentGenerationService> logger,
+        IRateLimitingService rateLimitingService)
     {
         _context = context;
         _logger = logger;
+        _rateLimitingService = rateLimitingService;
+        _configuration = configuration;
 
         var apiKey = configuration["Anthropic:ApiKey"] 
             ?? throw new InvalidOperationException("Anthropic API key not configured");
@@ -47,6 +52,19 @@ public class AiContentGenerationService : IAiContentGenerationService
 
     public async Task<GeneratedContent> GenerateFlashcardsAsync(int documentId, string? teacherInstructions = null)
     {
+        // Check rate limit before making API call
+        if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+        {
+            var canMakeRequest = await _rateLimitingService.CanMakeRequestAsync();
+            if (!canMakeRequest)
+            {
+                var usage = await _rateLimitingService.GetTodayUsageAsync();
+                var limit = _rateLimitingService.GetDailyTokenLimit();
+                throw new InvalidOperationException(
+                    $"Daily token limit exceeded. Used: {usage.TotalTokens:N0}/{limit:N0} tokens. Please try again tomorrow.");
+            }
+        }
+
         var document = await GetDocumentWithTextAsync(documentId);
 
         var systemPrompt = @"You are an educational assistant that creates flashcards from study materials.
@@ -81,12 +99,20 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
         };
 
         _logger.LogInformation("Calling Anthropic API with model: {Model}", parameters.Model);
-        
+
         MessageResponse response;
         try
         {
             response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
             _logger.LogInformation("API call successful, response ID: {Id}", response.Id);
+
+            // Record token usage
+            if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+            {
+                await _rateLimitingService.RecordUsageAsync(
+                    response.Usage.InputTokens,
+                    response.Usage.OutputTokens);
+            }
         }
         catch (Exception ex)
         {
@@ -151,6 +177,19 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
 
     public async Task<GeneratedContent> GeneratePracticeTestAsync(int documentId, string? teacherInstructions = null)
     {
+        // Check rate limit before making API call
+        if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+        {
+            var canMakeRequest = await _rateLimitingService.CanMakeRequestAsync();
+            if (!canMakeRequest)
+            {
+                var usage = await _rateLimitingService.GetTodayUsageAsync();
+                var limit = _rateLimitingService.GetDailyTokenLimit();
+                throw new InvalidOperationException(
+                    $"Daily token limit exceeded. Used: {usage.TotalTokens:N0}/{limit:N0} tokens. Please try again tomorrow.");
+            }
+        }
+
         var document = await GetDocumentWithTextAsync(documentId);
 
         var systemPrompt = @"You are an educational assistant that creates practice tests from study materials.
@@ -184,6 +223,15 @@ Include a mix of question types (multiple choice, short answer) and provide an a
         };
 
         var response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+
+        // Record token usage
+        if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+        {
+            await _rateLimitingService.RecordUsageAsync(
+                response.Usage.InputTokens,
+                response.Usage.OutputTokens);
+        }
+
         var content = (response.Content.FirstOrDefault() as TextContent)?.Text ?? string.Empty;
 
         var generatedContent = new GeneratedContent
@@ -205,6 +253,19 @@ Include a mix of question types (multiple choice, short answer) and provide an a
 
     public async Task<GeneratedContent> GenerateSummaryAsync(int documentId, string? teacherInstructions = null)
     {
+        // Check rate limit before making API call
+        if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+        {
+            var canMakeRequest = await _rateLimitingService.CanMakeRequestAsync();
+            if (!canMakeRequest)
+            {
+                var usage = await _rateLimitingService.GetTodayUsageAsync();
+                var limit = _rateLimitingService.GetDailyTokenLimit();
+                throw new InvalidOperationException(
+                    $"Daily token limit exceeded. Used: {usage.TotalTokens:N0}/{limit:N0} tokens. Please try again tomorrow.");
+            }
+        }
+
         var document = await GetDocumentWithTextAsync(documentId);
 
         var systemPrompt = @"You are an educational assistant that creates concise summaries of study materials.
@@ -236,6 +297,15 @@ Focus on what students need to know for studying and test preparation.";
         };
 
         var response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+
+        // Record token usage
+        if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+        {
+            await _rateLimitingService.RecordUsageAsync(
+                response.Usage.InputTokens,
+                response.Usage.OutputTokens);
+        }
+
         var content = (response.Content.FirstOrDefault() as TextContent)?.Text ?? string.Empty;
 
         var generatedContent = new GeneratedContent
@@ -257,6 +327,17 @@ Focus on what students need to know for studying and test preparation.";
 
     public async Task<string> SuggestTestNameAsync(int testId)
     {
+        // Check rate limit before making API call
+        if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+        {
+            var canMakeRequest = await _rateLimitingService.CanMakeRequestAsync();
+            if (!canMakeRequest)
+            {
+                _logger.LogWarning("Daily token limit exceeded, returning default test name");
+                return $"Test - {DateTime.Now:yyyy-MM-dd}";
+            }
+        }
+
         // Get all documents for this test
         var documents = await _context.StudyDocuments
             .Where(d => d.TestId == testId && d.ExtractedText != null)
@@ -308,6 +389,15 @@ Examples: 'Fotosyntesen och Cellbiologi', 'Svenska Grammatik - Verb', 'Andra Vä
         try
         {
             var response = await _anthropicClient.Messages.GetClaudeMessageAsync(parameters);
+
+            // Record token usage
+            if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+            {
+                await _rateLimitingService.RecordUsageAsync(
+                    response.Usage.InputTokens,
+                    response.Usage.OutputTokens);
+            }
+
             var suggestedName = (response.Content.FirstOrDefault() as TextContent)?.Text?.Trim() ?? string.Empty;
 
             // Remove quotes if present

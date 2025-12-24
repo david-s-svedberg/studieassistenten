@@ -20,6 +20,7 @@ builder.Services.AddScoped<IAiContentGenerationService, AiContentGenerationServi
 builder.Services.AddScoped<IFlashcardPdfGenerationService, FlashcardPdfGenerationService>();
 builder.Services.AddScoped<IPracticeTestPdfGenerationService, PracticeTestPdfGenerationService>();
 builder.Services.AddScoped<ISummaryPdfGenerationService, SummaryPdfGenerationService>();
+builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
 
 // Configure Kestrel to allow larger request body sizes (60MB)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
@@ -63,6 +64,18 @@ app.UseHttpsRedirection();
 
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
+
+// Serve uploaded files from the uploads directory
+var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+if (!Directory.Exists(uploadsPath))
+{
+    Directory.CreateDirectory(uploadsPath);
+}
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
 
 app.UseRouting();
 

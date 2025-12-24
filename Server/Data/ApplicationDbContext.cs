@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<GeneratedContent> GeneratedContents => Set<GeneratedContent>();
     public DbSet<Flashcard> Flashcards => Set<Flashcard>();
     public DbSet<Test> Tests => Set<Test>();
+    public DbSet<UsageTracking> UsageTrackings => Set<UsageTracking>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -59,17 +60,28 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.CreatedAt).IsRequired();
-            
+
             // Relationships
             entity.HasMany(e => e.Documents)
                 .WithOne(e => e.Test)
                 .HasForeignKey(e => e.TestId)
                 .OnDelete(DeleteBehavior.SetNull);
-                
+
             entity.HasMany(e => e.GeneratedContents)
                 .WithOne(e => e.Test)
                 .HasForeignKey(e => e.TestId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configure UsageTracking
+        modelBuilder.Entity<UsageTracking>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Date).IsRequired();
+            entity.Property(e => e.LastUpdated).IsRequired();
+
+            // Ensure unique constraint on Date (one record per day)
+            entity.HasIndex(e => e.Date).IsUnique();
         });
     }
 }
