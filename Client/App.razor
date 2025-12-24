@@ -1,50 +1,49 @@
-﻿<CascadingAuthenticationState>
+﻿@inject NavigationManager NavigationManager
+
+<CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
-                <NotAuthorized>
-                    @if (context.User.Identity?.IsAuthenticated != true)
-                    {
+            @if (IsPublicPage(routeData))
+            {
+                @* Public pages (login, etc.) don't need authentication *@
+                <RouteView RouteData="@routeData" />
+            }
+            else
+            {
+                @* Protected pages require authentication *@
+                <AuthorizeView>
+                    <Authorized>
+                        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                    </Authorized>
+                    <NotAuthorized>
                         <RedirectToLogin />
-                    }
-                    else
-                    {
-                        <div style="padding: 20px;">
-                            <p role="alert">You are not authorized to access this page.</p>
-                        </div>
-                    }
-                </NotAuthorized>
-                <Authorizing>
-                    <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
-                        <div style="text-align: center;">
-                            <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
-                                <span class="visually-hidden">Loading...</span>
+                    </NotAuthorized>
+                    <Authorizing>
+                        <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
+                            <div style="text-align: center;">
+                                <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p style="margin-top: 16px; color: #666;">Verifying authentication...</p>
                             </div>
-                            <p style="margin-top: 16px; color: #666;">Verifying authentication...</p>
                         </div>
-                    </div>
-                </Authorizing>
-            </AuthorizeRouteView>
+                    </Authorizing>
+                </AuthorizeView>
+            }
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>
         <NotFound>
             <PageTitle>Not found</PageTitle>
-            <LayoutView Layout="@typeof(MainLayout)">
-                <p role="alert">Sorry, there's nothing at this address.</p>
-            </LayoutView>
+            <p role="alert">Sorry, there's nothing at this address.</p>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>
 
 @code {
-    private class RedirectToLogin : ComponentBase
+    private bool IsPublicPage(RouteData routeData)
     {
-        [Inject]
-        private NavigationManager Navigation { get; set; } = default!;
-
-        protected override void OnInitialized()
-        {
-            Navigation.NavigateTo("/login", true);
-        }
+        // Pages that don't require authentication
+        var publicPages = new[] { "Login" };
+        return publicPages.Contains(routeData.PageType.Name);
     }
 }

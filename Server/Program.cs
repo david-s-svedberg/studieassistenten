@@ -6,6 +6,8 @@ using StudieAssistenten.Server.Data;
 using StudieAssistenten.Server.Services;
 using StudieAssistenten.Shared.Models;
 using System.Security.Claims;
+using System.Net;
+using System.Net.Sockets;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,19 +40,49 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = "Google";
+    options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme; // Use Cookie, not Google
 })
 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
 {
+    var isDevelopment = builder.Environment.IsDevelopment();
+    
     options.Cookie.Name = "StudieAssistenten.Auth";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // HTTPS only
-    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = isDevelopment 
+        ? CookieSecurePolicy.SameAsRequest  // Allow HTTP in development
+        : CookieSecurePolicy.Always;         // HTTPS only in production
+    options.Cookie.SameSite = isDevelopment 
+        ? SameSiteMode.Lax                  // More permissive in development
+        : SameSiteMode.None;                 // Required for CORS in production
     options.ExpireTimeSpan = TimeSpan.FromDays(30);
     options.SlidingExpiration = true;
     options.LoginPath = "/login";
     options.LogoutPath = "/api/auth/logout";
     options.AccessDeniedPath = "/login?error=access_denied";
+    
+    // Prevent API endpoints from redirecting to login page (return 401 instead)
+    options.Events.OnRedirectToLogin = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        }
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+    
+    // Prevent API endpoints from redirecting on access denied
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = 403;
+            return Task.CompletedTask;
+        }
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
 })
 .AddGoogle("Google", options =>
 {
@@ -63,6 +95,43 @@ builder.Services.AddAuthentication(options =>
     // Request user profile information
     options.Scope.Add("profile");
     options.Scope.Add("email");
+
+    // Increase timeout and configure backchannel for IPv4
+    options.BackchannelTimeout = TimeSpan.FromSeconds(30);
+    options.BackchannelHttpHandler = new SocketsHttpHandler
+    {
+        ConnectTimeout = TimeSpan.FromSeconds(15),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        ConnectCallback = async (context, cancellationToken) =>
+        {
+            // Force IPv4 to avoid IPv6 timeout issues
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = true
+            };
+            try
+            {
+                await socket.ConnectAsync(context.DnsEndPoint, cancellationToken).ConfigureAwait(false);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch
+            {
+                socket.Dispose();
+                throw;
+            }
+        }
+    };
+    
+    // Add event handlers for better error reporting
+    options.Events.OnRemoteFailure = context =>
+    {
+        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(context.Failure, "Google OAuth remote failure");
+        
+        context.Response.Redirect($"/login?error=oauth_failure&message={Uri.EscapeDataString(context.Failure?.Message ?? "Unknown error")}");
+        context.HandleResponse();
+        return Task.CompletedTask;
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -93,18 +162,18 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
-// Configure CORS for authentication (cookies require credentials)
+// Configure CORS for development
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorClient",
         policy => policy
             .WithOrigins(
-                "https://localhost:7096",
-                "http://localhost:5050"
+                "https://localhost:7247",  // Server URL (Blazor WASM is hosted here)
+                "http://localhost:5059"     // Alternative HTTP port
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials()); // Required for cookies
+            .AllowCredentials()); // Required for cookie authentication
 });
 
 var app = builder.Build();

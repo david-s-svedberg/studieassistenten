@@ -208,7 +208,7 @@ public class ContentGenerationController : ControllerBase
         var content = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Include(gc => gc.StudyDocument)
-                .ThenInclude(d => d.Test)
+                .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
         if (content == null || content.StudyDocument?.Test?.UserId != userId)
@@ -252,7 +252,7 @@ public class ContentGenerationController : ControllerBase
         var content = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Include(gc => gc.StudyDocument)
-                .ThenInclude(d => d.Test)
+                .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
         if (content == null || content.StudyDocument?.Test?.UserId != userId)
@@ -260,6 +260,7 @@ public class ContentGenerationController : ControllerBase
             return NotFound();
         }
 
+        // content is guaranteed non-null here due to check above
         context.GeneratedContents.Remove(content);
         await context.SaveChangesAsync();
 
@@ -284,7 +285,7 @@ public class ContentGenerationController : ControllerBase
         var content = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Include(gc => gc.StudyDocument)
-                .ThenInclude(d => d.Test)
+                .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
         if (content == null || content.StudyDocument?.Test?.UserId != userId)

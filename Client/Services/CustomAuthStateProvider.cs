@@ -19,10 +19,16 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
+        _logger.LogInformation("CustomAuthStateProvider: GetAuthenticationStateAsync called");
+        
         try
         {
+            _logger.LogInformation("CustomAuthStateProvider: Calling /api/auth/user");
+            
             // Call the backend to get the current user
             var user = await _httpClient.GetFromJsonAsync<UserDto>("api/auth/user");
+
+            _logger.LogInformation("CustomAuthStateProvider: Response received, user is {IsNull}", user == null ? "null" : "not null");
 
             if (user != null)
             {
@@ -47,10 +53,15 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
                 return new AuthenticationState(principal);
             }
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            // User is not authenticated - this is expected
+            _logger.LogInformation("CustomAuthStateProvider: User not authenticated (401)");
+        }
         catch (HttpRequestException ex)
         {
-            // User is not authenticated (401/403) or other HTTP error
-            _logger.LogDebug(ex, "User not authenticated or error retrieving user");
+            // Other HTTP error
+            _logger.LogWarning(ex, "HTTP error retrieving user: {StatusCode}", ex.StatusCode);
         }
         catch (Exception ex)
         {
@@ -58,6 +69,7 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
         }
 
         // Return anonymous user
+        _logger.LogInformation("CustomAuthStateProvider: Returning anonymous user");
         _currentUser = null;
         var anonymous = new ClaimsPrincipal(new ClaimsIdentity());
         return new AuthenticationState(anonymous);

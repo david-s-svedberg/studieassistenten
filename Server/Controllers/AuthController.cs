@@ -131,11 +131,17 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// Get current user information
+    /// NOTE: This endpoint does NOT have [Authorize] to avoid redirect loops in Blazor WASM
     /// </summary>
     [HttpGet("user")]
-    [Authorize]
     public async Task<IActionResult> GetCurrentUser()
     {
+        // Check if user is authenticated
+        if (!User.Identity?.IsAuthenticated ?? true)
+        {
+            return Unauthorized();
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
         {

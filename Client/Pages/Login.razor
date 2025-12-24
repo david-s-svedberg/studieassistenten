@@ -1,4 +1,5 @@
 @page "/login"
+@attribute [AllowAnonymous]
 @inject NavigationManager Navigation
 
 <div class="login-container">
@@ -204,8 +205,8 @@
 
         foreach (var pair in pairs)
         {
-            var parts = pair.Split('=');
-            if (parts.Length == 2 && parts[0] == key)
+            var parts = pair.Split('=', 2);
+            if (parts.Length >= 2 && parts[0] == key)
             {
                 return parts[1];
             }

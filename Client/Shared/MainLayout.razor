@@ -192,7 +192,14 @@
     protected override async Task OnInitializedAsync()
     {
         currentUser = AuthStateProvider.GetCurrentUser();
-        await LoadTests();
+        
+        // Only load tests if user is authenticated
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            await LoadTests();
+        }
+        
         Navigation.LocationChanged += OnLocationChanged;
         UpdateCurrentTestId();
     }
@@ -200,7 +207,13 @@
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         UpdateCurrentTestId();
-        await LoadTests();
+        
+        // Only load tests if user is authenticated
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            await LoadTests();
+        }
     }
 
     private void UpdateCurrentTestId()
