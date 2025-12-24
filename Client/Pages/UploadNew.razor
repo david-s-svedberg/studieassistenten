@@ -1,0 +1,465 @@
+@page "/upload/{Mode}"
+@using StudieAssistenten.Client.Services
+@using StudieAssistenten.Shared.DTOs
+@using StudieAssistenten.Shared.Enums
+@inject IDocumentService DocumentService
+@inject ITestService TestService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Upload Documents</PageTitle>
+
+<div class="upload-container">
+    @if (currentTest == null && Mode == "new")
+    {
+        <div class="upload-header">
+            <h1>Upload Your Study Materials</h1>
+            <p class="text-muted">Upload your first document to create a new test</p>
+        </div>
+    }
+    else if (currentTest != null)
+    {
+        <div class="upload-header">
+            <h1>@currentTest.Name</h1>
+            <p class="text-muted">Add more documents to this test</p>
+        </div>
+    }
+
+    <div class="upload-area">
+        @if (isUploading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-light mb-3" role="status"></div>
+                <div>
+                    <p class="text-light mb-2">@uploadStatus</p>
+                    @if (isProcessingOcr)
+                    {
+                        <small class="text-muted">Processing with OCR...</small>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="file-input-wrapper">
+                <InputFile id="fileInput" 
+                          OnChange="@HandleFileSelected" 
+                          class="file-input" 
+                          accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
+                          multiple />
+                <label for="fileInput" class="file-input-label">
+                    <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
+                    <div class="mt-3">
+                        <strong>Click to upload</strong> or drag and drop
+                    </div>
+                    <div class="text-muted mt-2">
+                        PDF, Images, Text files (Max 60MB each)
+                    </div>
+                </label>
+            </div>
+
+            @if (selectedFiles.Any())
+            {
+                <div class="selected-files mt-4">
+                    <h5>Selected Files (@selectedFiles.Count)</h5>
+                    <div class="file-list">
+                        @foreach (var file in selectedFiles)
+                        {
+                            <div class="file-item">
+                                <i class="bi bi-file-earmark"></i>
+                                <span class="file-name">@file.Name</span>
+                                <span class="file-size">@FormatFileSize(file.Size)</span>
+                                <button class="btn-remove" @onclick="() => RemoveFile(file)">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                    <button class="btn btn-primary btn-lg mt-3 w-100" @onclick="UploadFiles">
+                        <i class="bi bi-upload"></i> Upload @selectedFiles.Count File@(selectedFiles.Count > 1 ? "s" : "")
+                    </button>
+                </div>
+            }
+
+            @if (uploadedDocuments.Any())
+            {
+                <div class="uploaded-files mt-4">
+                    <h5>Uploaded Documents (@uploadedDocuments.Count)</h5>
+                    <div class="file-list">
+                        @foreach (var doc in uploadedDocuments)
+                        {
+                            <div class="file-item success clickable" @onclick='() => Navigation.NavigateTo($"/document/{doc.Id}")'>
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                <span class="file-name">@doc.FileName</span>
+                                <span class="file-size">@doc.Status</span>
+                                <i class="bi bi-arrow-right ms-auto"></i>
+                            </div>
+                        }
+                    </div>
+
+                    @if (currentTestId.HasValue)
+                    {
+                        <button class="btn btn-success btn-lg mt-3 w-100" @onclick="GoToTest">
+                            <i class="bi bi-arrow-right"></i> Go to Test
+                        </button>
+                    }
+                </div>
+            }
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">
+            <i class="bi bi-exclamation-triangle"></i> @errorMessage
+        </div>
+    }
+</div>
+
+<style>
+    .upload-container {
+        max-width: 600px;
+        margin: 0 auto;
+        color: #ececf1;
+    }
+
+    .upload-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .upload-header h1 {
+        color: #ececf1;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .upload-area {
+        background: #444654;
+        border: 2px dashed #565869;
+        border-radius: 1rem;
+        padding: 2rem;
+        min-height: 300px;
+    }
+
+    .file-input-wrapper {
+        position: relative;
+    }
+
+    .file-input {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .file-input-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #8e8ea0;
+    }
+
+    .file-input-label:hover {
+        color: #ececf1;
+    }
+
+    .selected-files,
+    .uploaded-files {
+        background: #343541;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .selected-files h5,
+    .uploaded-files h5 {
+        color: #ececf1;
+        margin-bottom: 1rem;
+    }
+
+    .file-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .file-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: #444654;
+        border-radius: 0.5rem;
+        color: #ececf1;
+    }
+
+    .file-item.success {
+        background: #1a4d2e;
+    }
+
+    .file-item.clickable {
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .file-item.clickable:hover {
+        transform: translateX(4px);
+        background: #2a5d3e;
+    }
+
+    .file-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .file-size {
+        font-size: 0.875rem;
+        color: #8e8ea0;
+    }
+
+    .btn-remove {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        padding: 0.25rem;
+        font-size: 1.25rem;
+    }
+
+    .btn-remove:hover {
+        color: #dc2626;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string Mode { get; set; } = "new"; // "new" or testId
+
+    private List<IBrowserFile> selectedFiles = new();
+    private List<DocumentDto> uploadedDocuments = new();
+    private bool isUploading = false;
+    private bool isProcessingOcr = false;
+    private string uploadStatus = "";
+    private string? errorMessage;
+    private int? currentTestId;
+    private TestDto? currentTest;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Mode != "new" && int.TryParse(Mode, out var testId))
+        {
+            currentTestId = testId;
+            currentTest = await TestService.GetTestAsync(testId);
+
+            // Only load documents if the list is empty (initial load)
+            // Don't replace the list after uploads as it would lose newly uploaded files
+            if (currentTest?.Documents != null && !uploadedDocuments.Any())
+            {
+                uploadedDocuments = currentTest.Documents.ToList();
+            }
+        }
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFiles.Clear();
+        foreach (var file in e.GetMultipleFiles(10)) // Max 10 files at once
+        {
+            selectedFiles.Add(file);
+        }
+        errorMessage = null;
+    }
+
+    private void RemoveFile(IBrowserFile file)
+    {
+        selectedFiles.Remove(file);
+    }
+
+    private async Task UploadFiles()
+    {
+        if (!selectedFiles.Any()) return;
+
+        // CRITICAL: Read all files into memory FIRST, before hiding the InputFile
+        // When isUploading=true, the InputFile is removed from DOM which clears _blazorFilesById!
+        const long maxFileSize = 60 * 1024 * 1024; // 60 MB
+        var fileData = new List<(MemoryStream stream, string name, string contentType, long size)>();
+
+        try
+        {
+            // Read each file completely into memory while InputFile is still in the DOM
+            foreach (var file in selectedFiles)
+            {
+                using var browserStream = file.OpenReadStream(maxFileSize);
+                var memoryStream = new MemoryStream();
+                await browserStream.CopyToAsync(memoryStream);
+                memoryStream.Position = 0; // Reset to start for reading
+
+                fileData.Add((memoryStream, file.Name, file.ContentType, file.Size));
+            }
+
+            // NOW we can safely set isUploading = true (which hides InputFile)
+            isUploading = true;
+            errorMessage = null;
+
+            // If this is a new test, create it first with a temporary name
+            if (!currentTestId.HasValue)
+            {
+                var tempTest = await TestService.CreateTestAsync(new CreateTestRequest
+                {
+                    Name = $"New Test - {DateTime.Now:yyyy-MM-dd HH:mm}",
+                    Description = "Test created from upload",
+                    Instructions = ""
+                });
+
+                if (tempTest != null)
+                {
+                    currentTestId = tempTest.Id;
+                    currentTest = tempTest;
+                }
+            }
+
+            // Upload each file using the in-memory streams (no JS interop needed)
+            for (int i = 0; i < fileData.Count; i++)
+            {
+                var (stream, name, contentType, size) = fileData[i];
+                uploadStatus = $"Uploading {i + 1} of {fileData.Count}: {name}";
+
+                using (stream) // Ensure stream is disposed after upload
+                {
+                    var uploadedDoc = await DocumentService.UploadDocumentAsync(stream, name, contentType, size, currentTestId);
+
+                    if (uploadedDoc != null)
+                    {
+                        uploadedDocuments.Add(uploadedDoc);
+
+                        // Auto-trigger OCR if it's an image or PDF
+                        if (uploadedDoc.Status == DocumentStatus.Uploaded &&
+                            (uploadedDoc.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
+                             uploadedDoc.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                             uploadedDoc.FileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                             uploadedDoc.FileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            isProcessingOcr = true;
+                            uploadStatus = $"Processing OCR for {name}...";
+
+                            await DocumentService.TriggerOcrProcessingAsync(uploadedDoc.Id);
+
+                            // Wait a bit for OCR to complete
+                            await Task.Delay(2000);
+                        }
+                    }
+                }
+            }
+
+            selectedFiles.Clear();
+            isProcessingOcr = false;
+            uploadStatus = "Upload complete!";
+
+            // Single StateHasChanged at the end to update UI
+            StateHasChanged();
+
+            // Suggest test name using AI based on uploaded content
+            if (currentTestId.HasValue && uploadedDocuments.Any())
+            {
+                try
+                {
+                    // Wait for OCR to complete before suggesting name
+                    uploadStatus = "Waiting for OCR to complete...";
+                    StateHasChanged();
+
+                    bool ocrComplete = false;
+                    int maxAttempts = 30; // 30 seconds max
+                    int attempts = 0;
+
+                    while (!ocrComplete && attempts < maxAttempts)
+                    {
+                        await Task.Delay(1000); // Check every second
+                        attempts++;
+
+                        // Check if any documents have completed OCR
+                        var test = await TestService.GetTestAsync(currentTestId.Value);
+                        if (test?.Documents != null)
+                        {
+                            var completedDocs = test.Documents.Count(d =>
+                                d.Status == DocumentStatus.OcrCompleted ||
+                                !string.IsNullOrWhiteSpace(d.ExtractedText));
+
+                            Console.WriteLine($"[DEBUG] OCR check {attempts}: {completedDocs}/{test.Documents.Count} documents ready");
+
+                            if (completedDocs > 0)
+                            {
+                                ocrComplete = true;
+                            }
+                        }
+                    }
+
+                    if (ocrComplete)
+                    {
+                        Console.WriteLine($"[DEBUG] OCR complete, suggesting test name for test ID: {currentTestId.Value}");
+                        uploadStatus = "Suggesting test name...";
+                        StateHasChanged();
+
+                        var suggestedName = await TestService.SuggestTestNameAsync(currentTestId.Value);
+                        Console.WriteLine($"[DEBUG] Suggested name received: '{suggestedName}'");
+
+                        if (!string.IsNullOrWhiteSpace(suggestedName) && suggestedName != $"Test - {DateTime.Now:yyyy-MM-dd}")
+                        {
+                            // Reload test to get updated name
+                            currentTest = await TestService.GetTestAsync(currentTestId.Value);
+                            Console.WriteLine($"[DEBUG] Test reloaded, new name: '{currentTest?.Name}'");
+                            uploadStatus = $"Test renamed to: {suggestedName}";
+                        }
+                        else
+                        {
+                            Console.WriteLine("[DEBUG] No AI-generated name received, keeping default");
+                            uploadStatus = "Upload complete!";
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("[DEBUG] OCR timeout, skipping name suggestion");
+                        uploadStatus = "Upload complete!";
+                    }
+
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] Name suggestion failed: {ex.Message}");
+                    uploadStatus = "Upload complete!";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged(); // Ensure UI updates even if there was an error
+        }
+    }
+
+    private void GoToTest()
+    {
+        if (currentTestId.HasValue)
+        {
+            Navigation.NavigateTo($"/test/{currentTestId.Value}");
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024} KB";
+        return $"{bytes / (1024 * 1024)} MB";
+    }
+}
