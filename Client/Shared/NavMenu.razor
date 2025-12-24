@@ -1,4 +1,12 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@using StudieAssistenten.Shared.DTOs
+@using StudieAssistenten.Client.Services
+@using Microsoft.JSInterop
+@inject ITestService TestService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="" aria-label="StudieAssistenten Home">StudieAssistenten</a>
         <button title="Navigation menu" 
@@ -24,6 +32,28 @@
                 <span class="oi oi-list-rich" aria-hidden="true"></span> My Tests
             </NavLink>
         </div>
+
+        @if (tests != null && tests.Any())
+        {
+            <div class="nav-section-title px-3 mt-2">Recent Tests</div>
+            @foreach (var test in tests.Take(5))
+            {
+                <div class="nav-item px-3 ps-4">
+                    <NavLink class="nav-link nav-link-sub" href="@($"test/{test.Id}")">
+                        <span class="oi oi-folder" aria-hidden="true"></span> @test.Name
+                    </NavLink>
+                </div>
+            }
+            @if (tests.Count > 5)
+            {
+                <div class="nav-item px-3 ps-4">
+                    <NavLink class="nav-link nav-link-sub text-muted" href="tests">
+                        <span class="oi oi-ellipses" aria-hidden="true"></span> View all (@tests.Count)
+                    </NavLink>
+                </div>
+            }
+        }
+
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="upload">
                 <span class="oi oi-cloud-upload" aria-hidden="true"></span> Upload Material
@@ -37,13 +67,98 @@
     </nav>
 </div>
 
+<style>
+    .nav-section-title {
+        color: #8e8ea0;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 1rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .nav-link-sub {
+        font-size: 0.875rem;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+
+    .nav-link-sub .oi {
+        font-size: 0.75rem;
+    }
+</style>
+
 @code {
     private bool collapseNavMenu = true;
+    private List<TestDto> tests = new();
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LogToConsole("[NavMenu] OnInitializedAsync called");
+        NavigationManager.LocationChanged += OnLocationChanged;
+        await LoadTests();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await LogToConsole($"[NavMenu] Location changed to: {e.Location}");
+        await LoadTests();
+    }
+
+    private async Task LoadTests()
+    {
+        await LogToConsole("[NavMenu] LoadTests called");
+        try
+        {
+            var loadedTests = await TestService.GetAllTestsAsync();
+            await LogToConsole($"[NavMenu] Loaded {loadedTests?.Count ?? 0} tests");
+
+            if (loadedTests != null)
+            {
+                foreach (var test in loadedTests)
+                {
+                    await LogToConsole($"[NavMenu] Test: ID={test.Id}, Name={test.Name}");
+                }
+
+                tests = loadedTests;
+                await LogToConsole($"[NavMenu] Calling StateHasChanged, tests.Count={tests.Count}");
+                await InvokeAsync(StateHasChanged);
+                await LogToConsole("[NavMenu] StateHasChanged completed");
+            }
+            else
+            {
+                await LogToConsole("[NavMenu] loadedTests is null!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await LogToConsole($"[NavMenu] ERROR loading tests: {ex.Message}");
+            await LogToConsole($"[NavMenu] Stack trace: {ex.StackTrace}");
+        }
+    }
+
+    private async Task LogToConsole(string message)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("console.log", message);
+        }
+        catch
+        {
+            // Ignore logging errors
+        }
+    }
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }

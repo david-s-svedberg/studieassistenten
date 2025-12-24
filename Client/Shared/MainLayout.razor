@@ -74,10 +74,10 @@
         UpdateCurrentTestId();
     }
 
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         UpdateCurrentTestId();
-        StateHasChanged();
+        await LoadTests();
     }
 
     private void UpdateCurrentTestId()
