@@ -213,3 +213,13 @@ MigrationBackup/
 .ionide/
 # API Keys and Secrets
 **/appsettings.Development.json
+**/appsettings.*.json
+!**/appsettings.json
+.env
+.env.*
+*.secret
+*.credentials
+*.key
+*.pem
+secrets.json
+launchSettings.json
