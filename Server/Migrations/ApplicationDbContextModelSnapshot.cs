@@ -65,12 +65,17 @@ namespace StudieAssistenten.Server.Migrations
                     b.Property<int>("StudyDocumentId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("TestId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Title")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
                     b.HasIndex("StudyDocumentId");
+
+                    b.HasIndex("TestId");
 
                     b.ToTable("GeneratedContents");
                 });
@@ -103,15 +108,48 @@ namespace StudieAssistenten.Server.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("TeacherInstructions")
-                        .HasColumnType("TEXT");
+                    b.Property<int?>("TestId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TestId");
+
                     b.ToTable("StudyDocuments");
+                });
+
+            modelBuilder.Entity("StudieAssistenten.Shared.Models.Test", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Instructions")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Tests");
                 });
 
             modelBuilder.Entity("StudieAssistenten.Shared.Models.Flashcard", b =>
@@ -131,7 +169,24 @@ namespace StudieAssistenten.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("StudieAssistenten.Shared.Models.Test", "Test")
+                        .WithMany("GeneratedContents")
+                        .HasForeignKey("TestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("StudyDocument");
+
+                    b.Navigation("Test");
+                });
+
+            modelBuilder.Entity("StudieAssistenten.Shared.Models.StudyDocument", b =>
+                {
+                    b.HasOne("StudieAssistenten.Shared.Models.Test", "Test")
+                        .WithMany("Documents")
+                        .HasForeignKey("TestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Test");
                 });
 
             modelBuilder.Entity("StudieAssistenten.Shared.Models.GeneratedContent", b =>
@@ -141,6 +196,13 @@ namespace StudieAssistenten.Server.Migrations
 
             modelBuilder.Entity("StudieAssistenten.Shared.Models.StudyDocument", b =>
                 {
+                    b.Navigation("GeneratedContents");
+                });
+
+            modelBuilder.Entity("StudieAssistenten.Shared.Models.Test", b =>
+                {
+                    b.Navigation("Documents");
+
                     b.Navigation("GeneratedContents");
                 });
 #pragma warning restore 612, 618

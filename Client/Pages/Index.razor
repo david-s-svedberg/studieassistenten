@@ -1,77 +1,114 @@
 ﻿@page "/"
 @inject NavigationManager Navigation
 
-<PageTitle>Studieassistenten - Smart Study Assistant</PageTitle>
+<PageTitle>Studieassistenten</PageTitle>
 
-<div class="container mt-5">
-    <div class="text-center mb-5">
-        <h1 class="display-3 fw-bold">📚 Studieassistenten</h1>
-        <p class="lead text-muted">Your AI-powered study companion for Swedish students</p>
-    </div>
+<div class="welcome-container">
+    <div class="welcome-content">
+        <div class="welcome-icon">
+            <i class="bi bi-mortarboard" style="font-size: 4rem; color: #10a37f;"></i>
+        </div>
+        <h1 class="welcome-title">StudieAssistenten</h1>
+        <p class="welcome-subtitle">Your AI-powered study companion</p>
+        
+        <div class="welcome-actions">
+            <button class="btn btn-lg btn-primary px-5" @onclick="CreateNewTest">
+                <i class="bi bi-plus-circle"></i> Create New Test
+            </button>
+        </div>
 
-    <div class="row justify-content-center mb-5">
-        <div class="col-md-8">
-            <div class="card shadow-lg border-0">
-                <div class="card-body p-5 text-center">
-                    <h2 class="mb-4">How it works</h2>
-                    <div class="row g-4">
-                        <div class="col-md-4">
-                            <div class="feature-icon bg-primary bg-gradient text-white rounded-circle mb-3 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
-                                <span style="font-size: 2rem;">📤</span>
-                            </div>
-                            <h5>1. Upload</h5>
-                            <p class="text-muted">Upload your study materials - images, PDFs, or text documents</p>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="feature-icon bg-success bg-gradient text-white rounded-circle mb-3 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
-                                <span style="font-size: 2rem;">🤖</span>
-                            </div>
-                            <h5>2. Process</h5>
-                            <p class="text-muted">AI extracts text (OCR) and understands your material in Swedish</p>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="feature-icon bg-info bg-gradient text-white rounded-circle mb-3 mx-auto" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
-                                <span style="font-size: 2rem;">✨</span>
-                            </div>
-                            <h5>3. Generate</h5>
-                            <p class="text-muted">Create flashcards, practice tests, or condensed summaries</p>
-                        </div>
-                    </div>
+        <div class="welcome-info mt-5">
+            <div class="info-grid">
+                <div class="info-item">
+                    <i class="bi bi-upload"></i>
+                    <span>Upload documents</span>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-file-text"></i>
+                    <span>Auto OCR</span>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-robot"></i>
+                    <span>AI generates content</span>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-file-pdf"></i>
+                    <span>Export to PDF</span>
                 </div>
             </div>
         </div>
-    </div>
-
-    <div class="row mb-5">
-        <div class="col-md-4 mb-3">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h4 class="card-title">🎴 Flashcards</h4>
-                    <p class="card-text">Generate question-answer flashcards in the format you need, ready for PDF export</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h4 class="card-title">📝 Practice Tests</h4>
-                    <p class="card-text">Create multiple-choice practice tests to prepare for your exams</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h4 class="card-title">📖 Summaries</h4>
-                    <p class="card-text">Get condensed summaries highlighting the most important information</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="text-center">
-        <button class="btn btn-primary btn-lg px-5 py-3" @onclick="@(() => Navigation.NavigateTo("/upload"))">
-            <span style="font-size: 1.2rem;">Get Started - Upload Your First Material</span>
-        </button>
     </div>
 </div>
+
+<style>
+    .welcome-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 80vh;
+        color: #ececf1;
+    }
+
+    .welcome-content {
+        text-align: center;
+        max-width: 600px;
+        padding: 2rem;
+    }
+
+    .welcome-icon {
+        margin-bottom: 1.5rem;
+    }
+
+    .welcome-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #ececf1;
+    }
+
+    .welcome-subtitle {
+        font-size: 1.25rem;
+        color: #8e8ea0;
+        margin-bottom: 2rem;
+    }
+
+    .welcome-actions {
+        margin: 2rem 0;
+    }
+
+    .welcome-info {
+        padding-top: 2rem;
+        border-top: 1px solid #444;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        color: #8e8ea0;
+    }
+
+    .info-item i {
+        font-size: 1.5rem;
+        color: #10a37f;
+    }
+
+    .info-item span {
+        font-size: 0.875rem;
+    }
+</style>
+
+@code {
+    private void CreateNewTest()
+    {
+        Navigation.NavigateTo("/upload/new");
+    }
+}

@@ -1,0 +1,228 @@
+@page "/tests"
+@using StudieAssistenten.Shared.DTOs
+@using StudieAssistenten.Client.Services
+@inject ITestService TestService
+@inject NavigationManager Navigation
+
+<PageTitle>My Tests</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>My Tests</h1>
+        <button class="btn btn-primary" @onclick="ShowCreateDialog">
+            <i class="bi bi-plus-circle"></i> Create New Test
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (tests.Count == 0)
+    {
+        <div class="alert alert-info">
+            <h4 class="alert-heading">No tests yet</h4>
+            <p>Create your first test to start organizing your study materials.</p>
+            <hr>
+            <button class="btn btn-primary" @onclick="ShowCreateDialog">
+                <i class="bi bi-plus-circle"></i> Create Your First Test
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var test in tests)
+            {
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">@test.Name</h5>
+                            <p class="card-text text-muted">@test.Description</p>
+                            
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-file-earmark-text"></i> @test.DocumentCount documents
+                                    @if (test.TotalCharacters > 0)
+                                    {
+                                        <span class="ms-2">• @FormatCharCount(test.TotalCharacters)</span>
+                                    }
+                                </small>
+                            </div>
+                            
+                            @if (test.HasGeneratedContent)
+                            {
+                                <span class="badge bg-success mb-2">
+                                    <i class="bi bi-check-circle"></i> Has Generated Content
+                                </span>
+                            }
+                            
+                            <div class="d-flex gap-2 mt-3">
+                                <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => ViewTest(test.Id)">
+                                    <i class="bi bi-eye"></i> View
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditTest(test)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTest(test)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-footer text-muted">
+                            <small>Created @test.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</small>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@* Create/Edit Modal *@
+@if (showDialog)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(editingTest == null ? "Create New Test" : "Edit Test")</h5>
+                    <button type="button" class="btn-close" @onclick="HideDialog"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Test Name *</label>
+                        <input type="text" class="form-control" @bind="testName" placeholder="e.g., Math Final Exam" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="2" @bind="testDescription" placeholder="Brief description of the test"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Instructions for AI</label>
+                        <textarea class="form-control" rows="3" @bind="testInstructions" placeholder="Instructions for AI when generating content (e.g., focus on key concepts, use simple language)"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideDialog">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveTest" disabled="@(string.IsNullOrWhiteSpace(testName))">
+                        @(editingTest == null ? "Create" : "Save Changes")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TestDto> tests = new();
+    private bool isLoading = true;
+    private bool showDialog = false;
+    private TestDto? editingTest = null;
+    
+    private string testName = "";
+    private string testDescription = "";
+    private string testInstructions = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTests();
+    }
+
+    private async Task LoadTests()
+    {
+        isLoading = true;
+        tests = await TestService.GetAllTestsAsync();
+        isLoading = false;
+    }
+
+    private void ShowCreateDialog()
+    {
+        editingTest = null;
+        testName = "";
+        testDescription = "";
+        testInstructions = "";
+        showDialog = true;
+    }
+
+    private void EditTest(TestDto test)
+    {
+        editingTest = test;
+        testName = test.Name;
+        testDescription = test.Description ?? "";
+        testInstructions = test.Instructions ?? "";
+        showDialog = true;
+    }
+
+    private void HideDialog()
+    {
+        showDialog = false;
+        editingTest = null;
+    }
+
+    private async Task SaveTest()
+    {
+        var request = new CreateTestRequest
+        {
+            Name = testName,
+            Description = testDescription,
+            Instructions = testInstructions
+        };
+
+        if (editingTest == null)
+        {
+            // Create new test
+            var result = await TestService.CreateTestAsync(request);
+            if (result != null)
+            {
+                await LoadTests();
+                HideDialog();
+            }
+        }
+        else
+        {
+            // Update existing test
+            var success = await TestService.UpdateTestAsync(editingTest.Id, request);
+            if (success)
+            {
+                await LoadTests();
+                HideDialog();
+            }
+        }
+    }
+
+    private async Task DeleteTest(TestDto test)
+    {
+        if (confirm($"Are you sure you want to delete '{test.Name}'? Documents will not be deleted."))
+        {
+            var success = await TestService.DeleteTestAsync(test.Id);
+            if (success)
+            {
+                await LoadTests();
+            }
+        }
+    }
+
+    private void ViewTest(int testId)
+    {
+        Navigation.NavigateTo($"/tests/{testId}");
+    }
+
+    private string FormatCharCount(int count)
+    {
+        if (count < 1000) return $"{count} chars";
+        if (count < 1000000) return $"{count / 1000:F1}K chars";
+        return $"{count / 1000000:F1}M chars";
+    }
+
+    private bool confirm(string message)
+    {
+        // In a real app, use JS Interop for confirmation
+        // For now, always return true
+        return true;
+    }
+}

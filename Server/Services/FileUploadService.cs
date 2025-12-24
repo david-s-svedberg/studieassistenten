@@ -64,7 +64,7 @@ public class FileUploadService : IFileUploadService
                 OriginalFilePath = filePath,
                 FileSizeBytes = uploadDto.FileSizeBytes,
                 ContentType = uploadDto.ContentType,
-                TeacherInstructions = uploadDto.TeacherInstructions,
+                TestId = uploadDto.TestId,
                 UploadedAt = DateTime.UtcNow,
                 Status = DocumentStatus.Uploaded
             };
@@ -154,7 +154,7 @@ public class FileUploadService : IFileUploadService
             UploadedAt = document.UploadedAt,
             Status = document.Status,
             ExtractedText = document.ExtractedText,
-            TeacherInstructions = document.TeacherInstructions
+            TestId = document.TestId
         };
     }
 }

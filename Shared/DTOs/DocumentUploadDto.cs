@@ -11,5 +11,5 @@ public class DocumentUploadDto
     
     public long FileSizeBytes { get; set; }
     
-    public string? TeacherInstructions { get; set; }
+    public int? TestId { get; set; }
 }

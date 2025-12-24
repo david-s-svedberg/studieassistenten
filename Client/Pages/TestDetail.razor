@@ -1,0 +1,420 @@
+@page "/test/{TestId:int}"
+@using StudieAssistenten.Shared.DTOs
+@using StudieAssistenten.Shared.Enums
+@using StudieAssistenten.Client.Services
+@inject ITestService TestService
+@inject IDocumentService DocumentService
+@inject ContentGenerationService ContentService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>@(test?.Name ?? "Test")</PageTitle>
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (test == null)
+{
+    <div class="alert alert-danger">
+        <h4>Test not found</h4>
+        <p>The test you're looking for doesn't exist.</p>
+        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/")'>Go Home</button>
+    </div>
+}
+else
+{
+    <div class="test-detail">
+        <div class="test-header">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="flex-grow-1">
+                    @if (isEditingName)
+                    {
+                        <input type="text" class="form-control form-control-lg bg-dark text-light border-secondary"
+                               @bind="editedName"
+                               @onblur="SaveName"
+                               @onkeydown="HandleNameKeyPress" />
+                    }
+                    else
+                    {
+                        <h1 class="test-title" @onclick="StartEditingName" style="cursor: pointer;" title="Click to edit">
+                            @test.Name <i class="bi bi-pencil-fill ms-2" style="font-size: 1rem;"></i>
+                        </h1>
+                    }
+                    @if (!string.IsNullOrEmpty(test.Description))
+                    {
+                        <p class="text-muted">@test.Description</p>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(test.Instructions))
+            {
+                <div class="alert alert-info">
+                    <strong>AI Instructions:</strong> @test.Instructions
+                </div>
+            }
+        </div>
+
+        <div class="test-actions mb-4">
+            <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo($"/upload/{TestId}")'>
+                <i class="bi bi-upload"></i> Upload Documents
+            </button>
+
+            @if (test.DocumentCount > 0)
+            {
+                <button class="btn btn-success" @onclick="GenerateFlashcards" disabled="@isGenerating">
+                    @if (isGenerating && generatingType == ProcessingType.Flashcards)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-card-list"></i> Generate Flashcards
+                </button>
+                <button class="btn btn-info" @onclick="GeneratePracticeTest" disabled="@isGenerating">
+                    @if (isGenerating && generatingType == ProcessingType.PracticeTest)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-file-text"></i> Generate Practice Test
+                </button>
+                <button class="btn btn-warning" @onclick="GenerateSummary" disabled="@isGenerating">
+                    @if (isGenerating && generatingType == ProcessingType.Summary)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-file-earmark-text"></i> Generate Summary
+                </button>
+            }
+        </div>
+
+        @if (isGenerating)
+        {
+            <div class="alert alert-info">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Generating @generatingType with AI... This may take a moment.</span>
+                </div>
+            </div>
+        }
+
+        @if (generatedContents.Any())
+        {
+            <div class="generated-content-section mb-4">
+                <h3 class="mb-3">Generated Content (@generatedContents.Count)</h3>
+                <div class="content-grid">
+                    @foreach (var content in generatedContents)
+                    {
+                        <div class="content-card">
+                            <div class="content-icon">
+                                <i class="bi @GetContentIcon(content.ProcessingType)"></i>
+                            </div>
+                            <div class="content-info flex-grow-1">
+                                <div class="content-title">@content.Title</div>
+                                <div class="content-meta">
+                                    @content.ProcessingType • @content.GeneratedAt.ToString("yyyy-MM-dd HH:mm")
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenPdf(content.Id)">
+                                <i class="bi bi-download"></i> PDF
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (test.DocumentCount == 0)
+        {
+            <div class="alert alert-secondary">
+                <h5>No documents yet</h5>
+                <p>Upload your first document to get started with this test.</p>
+            </div>
+        }
+        else
+        {
+            <div class="documents-section">
+                <h3 class="mb-3">Documents (@test.DocumentCount)</h3>
+                <div class="document-grid">
+                    @foreach (var doc in documents)
+                    {
+                        <div class="document-card" @onclick='() => ViewDocument(doc.Id)'>
+                            <div class="document-icon">
+                                <i class="bi @GetFileIcon(doc.FileName)"></i>
+                            </div>
+                            <div class="document-info">
+                                <div class="document-name">@doc.FileName</div>
+                                <div class="document-meta">
+                                    @FormatFileSize(doc.FileSizeBytes) • @doc.Status
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<style>
+    .test-detail {
+        color: #ececf1;
+    }
+
+    .test-title {
+        color: #ececf1;
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .test-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .documents-section h3,
+    .generated-content-section h3 {
+        color: #ececf1;
+    }
+
+    .document-grid, .content-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .document-card, .content-card {
+        background: #444654;
+        border: 1px solid #565869;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        transition: all 0.2s;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .document-card {
+        cursor: pointer;
+    }
+
+    .document-card:hover {
+        background: #565869;
+        transform: translateY(-2px);
+    }
+
+    .content-card {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+
+    .document-icon, .content-icon {
+        font-size: 2rem;
+    }
+
+    .document-icon {
+        color: #10a37f;
+    }
+
+    .content-icon {
+        color: #3b82f6;
+    }
+
+    .document-info, .content-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .document-name, .content-title {
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #ececf1;
+    }
+
+    .document-meta, .content-meta {
+        font-size: 0.875rem;
+        color: #8e8ea0;
+        margin-top: 0.25rem;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int TestId { get; set; }
+
+    private TestDto? test;
+    private List<DocumentDto> documents = new();
+    private List<GeneratedContentDto> generatedContents = new();
+    private bool isLoading = true;
+    private bool isGenerating = false;
+    private ProcessingType? generatingType = null;
+    private bool isEditingName = false;
+    private string editedName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTest();
+        await LoadGeneratedContent();
+    }
+
+    private async Task LoadTest()
+    {
+        isLoading = true;
+        test = await TestService.GetTestAsync(TestId);
+
+        if (test != null)
+        {
+            // Load documents for this test
+            var allDocs = await DocumentService.GetDocumentsAsync();
+            documents = allDocs.Where(d => d.TestId == TestId).ToList();
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadGeneratedContent()
+    {
+        try
+        {
+            generatedContents = await ContentService.GetTestContentsAsync(TestId);
+        }
+        catch
+        {
+            generatedContents = new();
+        }
+    }
+
+    private void StartEditingName()
+    {
+        if (test != null)
+        {
+            editedName = test.Name;
+            isEditingName = true;
+        }
+    }
+
+    private async Task SaveName()
+    {
+        if (test != null && !string.IsNullOrWhiteSpace(editedName) && editedName != test.Name)
+        {
+            var request = new CreateTestRequest
+            {
+                Name = editedName,
+                Description = test.Description,
+                Instructions = test.Instructions
+            };
+
+            await TestService.UpdateTestAsync(TestId, request);
+            test.Name = editedName;
+        }
+
+        isEditingName = false;
+    }
+
+    private async Task HandleNameKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SaveName();
+        }
+        else if (e.Key == "Escape")
+        {
+            isEditingName = false;
+        }
+    }
+
+    private async Task GenerateFlashcards()
+    {
+        await GenerateContent(ProcessingType.Flashcards);
+    }
+
+    private async Task GeneratePracticeTest()
+    {
+        await GenerateContent(ProcessingType.PracticeTest);
+    }
+
+    private async Task GenerateSummary()
+    {
+        await GenerateContent(ProcessingType.Summary);
+    }
+
+    private async Task GenerateContent(ProcessingType type)
+    {
+        if (documents.Count == 0) return;
+
+        isGenerating = true;
+        generatingType = type;
+
+        try
+        {
+            var request = new GenerateContentRequestDto
+            {
+                DocumentId = documents[0].Id,
+                ProcessingType = type
+            };
+
+            var result = await ContentService.GenerateContentAsync(request);
+
+            if (result != null)
+            {
+                // Open PDF in new tab
+                await JS.InvokeVoidAsync("open", ContentService.GetPdfUrl(result.Id), "_blank");
+
+                // Reload content list
+                await LoadGeneratedContent();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating content: {ex.Message}");
+        }
+        finally
+        {
+            isGenerating = false;
+            generatingType = null;
+        }
+    }
+
+    private async Task OpenPdf(int contentId)
+    {
+        await JS.InvokeVoidAsync("open", ContentService.GetPdfUrl(contentId), "_blank");
+    }
+
+    private void ViewDocument(int documentId)
+    {
+        Navigation.NavigateTo($"/document/{documentId}");
+    }
+
+    private string GetFileIcon(string fileName)
+    {
+        var lower = fileName.ToLowerInvariant();
+        if (lower.EndsWith(".jpg") || lower.EndsWith(".jpeg") || lower.EndsWith(".png") || lower.EndsWith(".gif")) return "bi-file-image";
+        if (lower.EndsWith(".pdf")) return "bi-file-pdf";
+        return "bi-file-text";
+    }
+
+    private string GetContentIcon(ProcessingType type)
+    {
+        return type switch
+        {
+            ProcessingType.Flashcards => "bi-card-list",
+            ProcessingType.PracticeTest => "bi-file-text",
+            ProcessingType.Summary => "bi-file-earmark-text",
+            _ => "bi-file"
+        };
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024} KB";
+        return $"{bytes / (1024 * 1024)} MB";
+    }
+}

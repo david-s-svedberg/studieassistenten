@@ -1,23 +1,145 @@
 ﻿@inherits LayoutComponentBase
+@using StudieAssistenten.Shared.DTOs
+@using StudieAssistenten.Client.Services
+@inject ITestService TestService
+@inject NavigationManager Navigation
+@implements IDisposable
 
-<a href="#main-content" class="skip-to-main">Skip to main content</a>
-
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+<div class="app-container">
+    @* Left Sidebar - ChatGPT style *@
+    <div class="sidebar-new">
+        <div class="sidebar-header">
+            <h1 class="app-title">StudieAssistenten</h1>
+            <button class="btn btn-primary w-100 mb-3" @onclick="CreateNewTest">
+                <i class="bi bi-plus-lg"></i> New Test
+            </button>
+        </div>
+        
+        <div class="sidebar-content">
+            @if (isLoadingTests)
+            {
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-light" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+            else if (tests.Count == 0)
+            {
+                <div class="text-muted text-center py-3">
+                    <small>No tests yet</small>
+                </div>
+            }
+            else
+            {
+                <div class="test-list">
+                    @foreach (var test in tests)
+                    {
+                        <div class="test-item @(IsActiveTest(test.Id) ? "active" : "")" @onclick="() => NavigateToTest(test.Id)">
+                            <div class="test-item-content">
+                                <div class="test-name">@test.Name</div>
+                                <div class="test-meta">
+                                    <small>@test.DocumentCount docs</small>
+                                </div>
+                            </div>
+                            <button class="btn-delete" @onclick:stopPropagation="true" @onclick="() => DeleteTest(test.Id)" title="Delete test">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
     </div>
 
-    <main id="main-content" role="main">
-        <div class="top-row px-4">
-            <a href="https://github.com/david-s-svedberg/studieassistenten" target="_blank" rel="noopener noreferrer">
-                <i class="bi bi-github"></i> GitHub
-            </a>
-        </div>
-
-        <article class="content px-4">
+    @* Main Content Area *@
+    <div class="main-content">
+        <div class="content-wrapper">
             @Body
-        </article>
-    </main>
+        </div>
+    </div>
 </div>
 
 <PwaInstallPrompt />
+
+@code {
+    private List<TestDto> tests = new();
+    private bool isLoadingTests = true;
+    private int? currentTestId = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTests();
+        Navigation.LocationChanged += OnLocationChanged;
+        UpdateCurrentTestId();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        UpdateCurrentTestId();
+        StateHasChanged();
+    }
+
+    private void UpdateCurrentTestId()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (uri.AbsolutePath.StartsWith("/test/"))
+        {
+            var idStr = uri.AbsolutePath.Substring("/test/".Length).Split('/')[0];
+            if (int.TryParse(idStr, out var id))
+            {
+                currentTestId = id;
+            }
+        }
+        else
+        {
+            currentTestId = null;
+        }
+    }
+
+    private bool IsActiveTest(int testId)
+    {
+        return currentTestId == testId;
+    }
+
+    private async Task LoadTests()
+    {
+        isLoadingTests = true;
+        tests = await TestService.GetAllTestsAsync();
+        isLoadingTests = false;
+        StateHasChanged();
+    }
+
+    public async Task RefreshTests()
+    {
+        await LoadTests();
+    }
+
+    private void CreateNewTest()
+    {
+        Navigation.NavigateTo("/upload/new");
+    }
+
+    private void NavigateToTest(int testId)
+    {
+        Navigation.NavigateTo($"/test/{testId}");
+    }
+
+    private async Task DeleteTest(int testId)
+    {
+        var success = await TestService.DeleteTestAsync(testId);
+        if (success)
+        {
+            await LoadTests();
+            if (currentTestId == testId)
+            {
+                Navigation.NavigateTo("/");
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

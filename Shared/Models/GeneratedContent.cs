@@ -11,6 +11,10 @@ public class GeneratedContent
     
     public StudyDocument? StudyDocument { get; set; }
     
+    public int? TestId { get; set; }
+    
+    public Test? Test { get; set; }
+    
     public Enums.ProcessingType ProcessingType { get; set; }
     
     public DateTime GeneratedAt { get; set; }

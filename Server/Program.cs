@@ -12,11 +12,14 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=studieassistenten.db"));
 
 // Register application services
+builder.Services.AddScoped<ITestService, TestService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IOcrService, TesseractOcrService>();
 builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
 builder.Services.AddScoped<IAiContentGenerationService, AiContentGenerationService>();
 builder.Services.AddScoped<IFlashcardPdfGenerationService, FlashcardPdfGenerationService>();
+builder.Services.AddScoped<IPracticeTestPdfGenerationService, PracticeTestPdfGenerationService>();
+builder.Services.AddScoped<ISummaryPdfGenerationService, SummaryPdfGenerationService>();
 
 // Configure Kestrel to allow larger request body sizes (60MB)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>

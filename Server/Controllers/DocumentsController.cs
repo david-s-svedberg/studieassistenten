@@ -23,7 +23,7 @@ public class DocumentsController : ControllerBase
     /// Upload a new document
     /// </summary>
     [HttpPost("upload")]
-    public async Task<ActionResult<DocumentDto>> Upload([FromForm] IFormFile file, [FromForm] string? teacherInstructions)
+    public async Task<ActionResult<DocumentDto>> Upload([FromForm] IFormFile file, [FromForm] int? testId)
     {
         try
         {
@@ -60,7 +60,7 @@ public class DocumentsController : ControllerBase
                 FileName = file.FileName,
                 ContentType = file.ContentType,
                 FileSizeBytes = file.Length,
-                TeacherInstructions = teacherInstructions
+                TestId = testId
             };
 
             using var stream = file.OpenReadStream();

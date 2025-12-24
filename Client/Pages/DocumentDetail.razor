@@ -6,139 +6,112 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
-<PageTitle>Document Details - Studieassistenten</PageTitle>
+<PageTitle>@(document?.FileName ?? "Document")</PageTitle>
 
-<div class="container mt-4">
-    @if (isLoading)
-    {
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-light">Loading document...</p>
+    </div>
+}
+else if (document == null)
+{
+    <div class="alert alert-danger">
+        <h4>Document not found</h4>
+        <p>The requested document could not be found.</p>
+        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/documents")'>
+            Back to Documents
+        </button>
+    </div>
+}
+else
+{
+    <div class="document-detail-container">
+        <div class="document-header">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="document-title">@document.FileName</h1>
+                <button class="btn btn-secondary" @onclick="GoBack">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
             </div>
-            <p class="mt-3">Loading document...</p>
-        </div>
-    }
-    else if (document == null)
-    {
-        <div class="alert alert-danger">
-            <h4>Document not found</h4>
-            <p>The requested document could not be found.</p>
-            <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/documents"))">
-                Back to Documents
-            </button>
-        </div>
-    }
-    else
-    {
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>📄 @document.FileName</h1>
-            <button class="btn btn-secondary" @onclick="@(() => Navigation.NavigateTo("/documents"))">
-                <i class="bi bi-arrow-left"></i> Back
-            </button>
+            <div class="document-meta">
+                <span class="badge @GetStatusBadgeClass(document.Status)">@document.Status</span>
+                <span class="text-muted ms-3">@FormatFileSize(document.FileSizeBytes)</span>
+                <span class="text-muted ms-3">Uploaded @document.UploadedAt.ToLocalTime().ToString("MMM d, yyyy HH:mm")</span>
+            </div>
         </div>
 
-        <div class="row">
-            <div class="col-md-4 mb-4">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">Document Information</h5>
-                    </div>
-                    <div class="card-body">
-                        <dl class="row mb-0">
-                            <dt class="col-sm-4">Status:</dt>
-                            <dd class="col-sm-8">
-                                <span class="badge @GetStatusBadgeClass(document.Status)">
-                                    @document.Status
-                                </span>
-                            </dd>
-
-                            <dt class="col-sm-4">Size:</dt>
-                            <dd class="col-sm-8">@FormatFileSize(document.FileSizeBytes)</dd>
-
-                            <dt class="col-sm-4">Uploaded:</dt>
-                            <dd class="col-sm-8">@document.UploadedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</dd>
-
-                            @if (!string.IsNullOrEmpty(document.TeacherInstructions))
-                            {
-                                <dt class="col-sm-12 mt-2"><strong>Teacher Instructions:</strong></dt>
-                                <dd class="col-sm-12">
-                                    <div class="alert alert-info small mb-0">
-                                        @document.TeacherInstructions
-                                    </div>
-                                </dd>
-                            }
-                        </dl>
-
-                        <hr />
-
-                        <div class="d-grid gap-2">
-                            @if (document.Status == DocumentStatus.Uploaded)
-                            {
-                                <button class="btn btn-primary" @onclick="ProcessDocument" disabled="@isProcessing">
-                                    @if (isProcessing)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-2"></span>
-                                        <span>Processing...</span>
-                                    }
-                                    else
-                                    {
-                                        <i class="bi bi-cpu"></i> <span>Extract Text (OCR)</span>
-                                    }
-                                </button>
-                            }
-                            else if (document.Status == DocumentStatus.OcrInProgress)
-                            {
-                                <button class="btn btn-info" disabled>
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                    Processing...
-                                </button>
-                                <button class="btn btn-secondary btn-sm" @onclick="RefreshDocument">
-                                    <i class="bi bi-arrow-clockwise"></i> Refresh Status
-                                </button>
-                            }
-                            else if (document.Status == DocumentStatus.OcrCompleted)
-                            {
-                                <button class="btn btn-success" disabled>
-                                    <i class="bi bi-check-circle"></i> Text Extracted
-                                </button>
-                                <button class="btn btn-primary btn-sm" @onclick="ProcessDocument">
-                                    <i class="bi bi-arrow-repeat"></i> Re-process
-                                </button>
-                            }
-                            else if (document.Status == DocumentStatus.OcrFailed)
-                            {
-                                <button class="btn btn-danger" disabled>
-                                    <i class="bi bi-x-circle"></i> Processing Failed
-                                </button>
-                                <button class="btn btn-warning btn-sm" @onclick="ProcessDocument">
-                                    <i class="bi bi-arrow-repeat"></i> Retry
-                                </button>
-                            }
+        <div class="document-content-grid">
+            @* File Preview Section *@
+            @if (IsImageFile(document.FileName))
+            {
+                <div class="preview-section">
+                    <div class="preview-card">
+                        <div class="preview-header">
+                            <h5>Image Preview</h5>
+                        </div>
+                        <div class="preview-body">
+                            <img src="/uploads/@document.FileName" alt="@document.FileName" class="img-fluid" style="max-height: 500px; object-fit: contain;" />
                         </div>
                     </div>
                 </div>
-            </div>
+            }
+            else if (IsPdfFile(document.FileName))
+            {
+                <div class="preview-section">
+                    <div class="preview-card">
+                        <div class="preview-header">
+                            <h5>PDF Preview</h5>
+                            <a href="/uploads/@document.FileName" target="_blank" class="btn btn-sm btn-outline-light">
+                                <i class="bi bi-box-arrow-up-right"></i> Open in New Tab
+                            </a>
+                        </div>
+                        <div class="preview-body">
+                            <iframe src="/uploads/@document.FileName" style="width: 100%; height: 600px; border: none;"></iframe>
+                        </div>
+                    </div>
+                </div>
+            }
 
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Extracted Text</h5>
-                        @if (!isEditing && !string.IsNullOrWhiteSpace(document.ExtractedText))
+            @* Extracted Text Section *@
+            <div class="text-section">
+                <div class="text-card">
+                    <div class="text-header">
+                        <h5>Extracted Text</h5>
+                        @if (document.Status == DocumentStatus.Uploaded)
                         {
-                            <button class="btn btn-sm btn-light" @onclick="StartEditing">
+                            <button class="btn btn-sm btn-primary" @onclick="ProcessDocument" disabled="@isProcessing">
+                                @if (isProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-cpu"></i> Extract Text
+                            </button>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(document.ExtractedText) && !isEditing)
+                        {
+                            <button class="btn btn-sm btn-outline-light" @onclick="StartEditing">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
                         }
                     </div>
-                    <div class="card-body">
+                    <div class="text-body">
                         @if (string.IsNullOrWhiteSpace(document.ExtractedText))
                         {
-                            <div class="alert alert-secondary text-center py-5">
+                            <div class="text-center py-5 text-muted">
                                 <i class="bi bi-file-text" style="font-size: 3rem;"></i>
                                 <p class="mt-3">No text extracted yet.</p>
                                 @if (document.Status == DocumentStatus.Uploaded)
                                 {
-                                    <p>Click "Extract Text (OCR)" to process this document.</p>
+                                    <p>Click "Extract Text" to process this document.</p>
+                                }
+                                else if (document.Status == DocumentStatus.OcrInProgress)
+                                {
+                                    <div class="spinner-border text-primary mt-3" role="status"></div>
+                                    <p class="mt-2">Processing...</p>
                                 }
                             </div>
                         }
@@ -146,193 +119,165 @@
                         {
                             @if (isEditing)
                             {
-                                <div class="mb-3">
-                                    <textarea class="form-control" rows="20" @bind="editedText" style="font-family: monospace;"></textarea>
-                                </div>
-                                <div class="d-flex gap-2">
+                                <textarea class="form-control text-editor" rows="25" @bind="editedText"></textarea>
+                                <div class="d-flex gap-2 mt-3">
                                     <button class="btn btn-primary" @onclick="SaveText" disabled="@isSaving">
                                         @if (isSaving)
                                         {
-                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
                                         }
-                                        <span>Save Changes</span>
+                                        Save Changes
                                     </button>
                                     <button class="btn btn-secondary" @onclick="CancelEditing">Cancel</button>
                                 </div>
                             }
                             else
                             {
-                                <div class="border rounded p-3" style="white-space: pre-wrap; font-family: monospace; max-height: 600px; overflow-y: auto;">
+                                <div class="extracted-text-display">
                                     @document.ExtractedText
-                                </div>
-                                <div class="mt-3">
-                                    <small class="text-muted">@document.ExtractedText.Length characters extracted</small>
                                 </div>
                             }
                         }
                     </div>
                 </div>
-
-                @* AI Content Generation Section *@
-                @if (!string.IsNullOrWhiteSpace(document.ExtractedText))
-                {
-                    <div class="card mt-4">
-                        <div class="card-header bg-info text-white">
-                            <h5 class="mb-0">🤖 AI-Powered Study Tools</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="text-muted">Generate study materials from the extracted text using AI</p>
-                            
-                            <div class="mb-3">
-                                <label for="teacherInstructions" class="form-label">Additional Instructions (Optional)</label>
-                                <textarea class="form-control" id="teacherInstructions" rows="2" 
-                                          @bind="teacherInstructions" 
-                                          placeholder="E.g., 'Focus on chapters 1-3' or 'Include questions about terminology'"></textarea>
-                            </div>
-
-                            <div class="row g-2">
-                                <div class="col-md-4">
-                                    <button class="btn btn-primary w-100" @onclick="@(() => GenerateContent(ProcessingType.Flashcards))" disabled="@isGenerating">
-                                        @if (isGenerating && generatingType == ProcessingType.Flashcards)
-                                        {
-                                            <span class="spinner-border spinner-border-sm me-2"></span>
-                                        }
-                                        else
-                                        {
-                                            <i class="bi bi-card-list me-2"></i>
-                                        }
-                                        Generate Flashcards
-                                    </button>
-                                </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-warning w-100" @onclick="@(() => GenerateContent(ProcessingType.PracticeTest))" disabled="@isGenerating">
-                                        @if (isGenerating && generatingType == ProcessingType.PracticeTest)
-                                        {
-                                            <span class="spinner-border spinner-border-sm me-2"></span>
-                                        }
-                                        else
-                                        {
-                                            <i class="bi bi-clipboard-check me-2"></i>
-                                        }
-                                        Generate Practice Test
-                                    </button>
-                                </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-success w-100" @onclick="@(() => GenerateContent(ProcessingType.Summary))" disabled="@isGenerating">
-                                        @if (isGenerating && generatingType == ProcessingType.Summary)
-                                        {
-                                            <span class="spinner-border spinner-border-sm me-2"></span>
-                                        }
-                                        else
-                                        {
-                                            <i class="bi bi-file-text me-2"></i>
-                                        }
-                                        Generate Summary
-                                    </button>
-                                </div>
-                            </div>
-
-                            @if (!string.IsNullOrWhiteSpace(generationError))
-                            {
-                                <div class="alert alert-danger mt-3">
-                                    @generationError
-                                </div>
-                            }
-
-                            @if (generatedContents.Any())
-                            {
-                                <hr class="my-4" />
-                                <h6>Generated Content</h6>
-                                <div class="list-group">
-                                    @foreach (var content in generatedContents)
-                                    {
-                                        <div class="list-group-item">
-                                            <div class="d-flex justify-content-between align-items-start">
-                                                <div>
-                                                    <h6 class="mb-1">
-                                                        @content.Title
-                                                        <span class="badge @GetProcessingTypeBadge(content.ProcessingType) ms-2">
-                                                            @content.ProcessingType
-                                                        </span>
-                                                    </h6>
-                                                    <small class="text-muted">
-                                                        Generated @content.GeneratedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
-                                                        @if (content.FlashcardsCount > 0)
-                                                        {
-                                                            <span> • @content.FlashcardsCount flashcards</span>
-                                                        }
-                                                    </small>
-                                                </div>
-                                                <div>
-                                                    <button class="btn btn-sm btn-primary me-1" @onclick="@(() => ViewGeneratedContent(content.Id))">
-                                                        <i class="bi bi-eye"></i> View
-                                                    </button>
-                                                    @if (content.ProcessingType == ProcessingType.Flashcards && content.FlashcardsCount > 0)
-                                                    {
-                                                        <a href="@GetPdfDownloadUrl(content.Id)" class="btn btn-sm btn-success" download>
-                                                            <i class="bi bi-file-pdf"></i> PDF
-                                                        </a>
-                                                    }
-                                                </div>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
             </div>
         </div>
+    </div>
+}
 
-        @* Generated Content Modal *@
-        @if (selectedContent != null)
-        {
-            <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">@selectedContent.Title</h5>
-                            <button type="button" class="btn-close" @onclick="CloseModal"></button>
-                        </div>
-                        <div class="modal-body">
-                            @if (selectedContent.ProcessingType == ProcessingType.Flashcards && selectedContent.Flashcards.Any())
-                            {
-                                <div class="flashcards-container">
-                                    @foreach (var flashcard in selectedContent.Flashcards)
-                                    {
-                                        <div class="card mb-3">
-                                            <div class="card-body">
-                                                <h6 class="text-primary">Question @(flashcard.Order + 1)</h6>
-                                                <p><strong>@flashcard.Question</strong></p>
-                                                <hr />
-                                                <h6 class="text-success">Answer</h6>
-                                                <p>@flashcard.Answer</p>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                            else
-                            {
-                                <div style="white-space: pre-wrap;">@selectedContent.Content</div>
-                            }
-                        </div>
-                        <div class="modal-footer">
-                            @if (selectedContent.ProcessingType == ProcessingType.Flashcards && selectedContent.FlashcardsCount > 0)
-                            {
-                                <a href="@GetPdfDownloadUrl(selectedContent.Id)" class="btn btn-success" download>
-                                    <i class="bi bi-file-pdf"></i> Download PDF
-                                </a>
-                            }
-                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<style>
+    .document-detail-container {
+        color: #ececf1;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .document-header {
+        margin-bottom: 2rem;
+    }
+
+    .document-title {
+        color: #ececf1;
+        font-size: 1.75rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .document-meta {
+        margin-top: 0.5rem;
+    }
+
+    .document-content-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 2rem;
+    }
+
+    .preview-section,
+    .text-section {
+        min-height: 400px;
+    }
+
+    .preview-card,
+    .text-card {
+        background: #444654;
+        border: 1px solid #565869;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    .preview-header,
+    .text-header {
+        padding: 1rem;
+        background: #343541;
+        border-bottom: 1px solid #565869;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .preview-header h5,
+    .text-header h5 {
+        margin: 0;
+        color: #ececf1;
+        font-size: 1rem;
+    }
+
+    .preview-body,
+    .text-body {
+        padding: 1rem;
+    }
+
+    .preview-body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #2a2b32;
+    }
+
+    .text-editor {
+        background: #2a2b32;
+        color: #ececf1;
+        border: 1px solid #565869;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.9rem;
+        resize: vertical;
+    }
+
+    .extracted-text-display {
+        background: #2a2b32;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        white-space: pre-wrap;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #ececf1;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .generation-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .content-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .content-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #2a2b32;
+        border-radius: 8px;
+    }
+
+    .content-info h6 {
+        margin: 0 0 0.25rem 0;
+    }
+
+    .content-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .badge {
+        padding: 0.35rem 0.65rem;
+        font-size: 0.875rem;
+    }
+
+    @@media (max-width: 1024px) {
+        .document-content-grid {
+            grid-template-columns: 1fr;
         }
     }
-</div>
+</style>
 
 @code {
     [Parameter]
@@ -344,20 +289,10 @@
     private bool isEditing = false;
     private bool isSaving = false;
     private string editedText = string.Empty;
-    private bool isGenerating = false;
-    private ProcessingType? generatingType = null;
-    private string teacherInstructions = string.Empty;
-    private string generationError = string.Empty;
-    private List<GeneratedContentDto> generatedContents = new();
-    private GeneratedContentDto? selectedContent = null;
-
-    [Inject]
-    private ContentGenerationService ContentGenerationService { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDocument();
-        await LoadGeneratedContents();
     }
 
     private async Task LoadDocument()
@@ -365,88 +300,6 @@
         isLoading = true;
         document = await DocumentService.GetDocumentAsync(DocumentId);
         isLoading = false;
-    }
-
-    private async Task LoadGeneratedContents()
-    {
-        try
-        {
-            generatedContents = await ContentGenerationService.GetDocumentContentsAsync(DocumentId);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading generated contents: {ex.Message}");
-            generatedContents = new();
-        }
-    }
-
-    private async Task GenerateContent(ProcessingType type)
-    {
-        if (document == null) return;
-
-        isGenerating = true;
-        generatingType = type;
-        generationError = string.Empty;
-
-        try
-        {
-            var request = new GenerateContentRequestDto
-            {
-                DocumentId = DocumentId,
-                ProcessingType = type,
-                TeacherInstructions = string.IsNullOrWhiteSpace(teacherInstructions) ? null : teacherInstructions
-            };
-
-            var result = await ContentGenerationService.GenerateContentAsync(request);
-            
-            if (result != null)
-            {
-                await LoadGeneratedContents();
-                teacherInstructions = string.Empty;
-            }
-        }
-        catch (Exception ex)
-        {
-            generationError = $"Error generating content: {ex.Message}";
-        }
-        finally
-        {
-            isGenerating = false;
-            generatingType = null;
-        }
-    }
-
-    private async Task ViewGeneratedContent(int contentId)
-    {
-        try
-        {
-            selectedContent = await ContentGenerationService.GetContentAsync(contentId);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading content: {ex.Message}");
-        }
-    }
-
-    private void CloseModal()
-    {
-        selectedContent = null;
-    }
-
-    private string GetProcessingTypeBadge(ProcessingType type)
-    {
-        return type switch
-        {
-            ProcessingType.Flashcards => "bg-primary",
-            ProcessingType.PracticeTest => "bg-warning text-dark",
-            ProcessingType.Summary => "bg-success",
-            _ => "bg-secondary"
-        };
-    }
-
-    private async Task RefreshDocument()
-    {
-        await LoadDocument();
     }
 
     private async Task ProcessDocument()
@@ -528,6 +381,29 @@
         };
     }
 
+    private bool IsImageFile(string fileName)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".bmp";
+    }
+
+    private bool IsPdfFile(string fileName)
+    {
+        return Path.GetExtension(fileName).ToLowerInvariant() == ".pdf";
+    }
+
+    private void GoBack()
+    {
+        if (document?.TestId.HasValue == true)
+        {
+            Navigation.NavigateTo($"/test/{document.TestId}");
+        }
+        else
+        {
+            Navigation.NavigateTo("/documents");
+        }
+    }
+
     private string FormatFileSize(long bytes)
     {
         string[] sizes = { "B", "KB", "MB", "GB" };
@@ -539,10 +415,5 @@
             len = len / 1024;
         }
         return $"{len:0.##} {sizes[order]}";
-    }
-
-    private string GetPdfDownloadUrl(int contentId)
-    {
-        return $"{Navigation.BaseUri}api/ContentGeneration/{contentId}/pdf";
     }
 }

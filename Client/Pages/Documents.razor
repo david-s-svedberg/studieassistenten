@@ -62,13 +62,6 @@
                                     @doc.Status
                                 </span>
                             </p>
-                            
-                            @if (!string.IsNullOrEmpty(doc.TeacherInstructions))
-                            {
-                                <div class="alert alert-light small mb-2">
-                                    <strong>Instructions:</strong> @doc.TeacherInstructions
-                                </div>
-                            }
 
                             @if (!string.IsNullOrEmpty(doc.ExtractedText))
                             {
@@ -112,7 +105,7 @@
         errorMessage = null;
         try
         {
-            documents = await DocumentService.GetAllDocumentsAsync();
+            documents = await DocumentService.GetDocumentsAsync();
         }
         catch (Exception ex)
         {

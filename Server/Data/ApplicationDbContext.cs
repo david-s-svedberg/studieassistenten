@@ -16,6 +16,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<StudyDocument> StudyDocuments => Set<StudyDocument>();
     public DbSet<GeneratedContent> GeneratedContents => Set<GeneratedContent>();
     public DbSet<Flashcard> Flashcards => Set<Flashcard>();
+    public DbSet<Test> Tests => Set<Test>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,25 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Question).IsRequired().HasMaxLength(1000);
             entity.Property(e => e.Answer).IsRequired().HasMaxLength(2000);
+        });
+        
+        // Configure Test
+        modelBuilder.Entity<Test>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            // Relationships
+            entity.HasMany(e => e.Documents)
+                .WithOne(e => e.Test)
+                .HasForeignKey(e => e.TestId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            entity.HasMany(e => e.GeneratedContents)
+                .WithOne(e => e.Test)
+                .HasForeignKey(e => e.TestId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

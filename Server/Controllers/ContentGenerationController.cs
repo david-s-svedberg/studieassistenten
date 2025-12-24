@@ -44,13 +44,6 @@ public class ContentGenerationController : ControllerBase
                 return BadRequest(new { message = "Document has no extracted text. Please run OCR first." });
             }
 
-            // Update teacher instructions if provided
-            if (!string.IsNullOrWhiteSpace(request.TeacherInstructions))
-            {
-                document.TeacherInstructions = request.TeacherInstructions;
-                await context.SaveChangesAsync();
-            }
-
             // Generate content based on type
             var generatedContent = request.ProcessingType switch
             {
@@ -91,6 +84,50 @@ public class ContentGenerationController : ControllerBase
         var contents = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Where(gc => gc.StudyDocumentId == documentId)
+            .OrderByDescending(gc => gc.GeneratedAt)
+            .ToListAsync();
+
+        var result = contents.Select(gc => new
+        {
+            gc.Id,
+            gc.Title,
+            gc.ProcessingType,
+            gc.GeneratedAt,
+            gc.Content,
+            FlashcardsCount = gc.Flashcards.Count,
+            Flashcards = gc.Flashcards.OrderBy(f => f.Order).Select(f => new
+            {
+                f.Id,
+                f.Question,
+                f.Answer,
+                f.Order
+            }).ToList()
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpGet("test/{testId}")]
+    public async Task<IActionResult> GetTestGeneratedContent(int testId)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        // Get all documents for this test
+        var documentIds = await context.StudyDocuments
+            .Where(d => d.TestId == testId)
+            .Select(d => d.Id)
+            .ToListAsync();
+
+        if (!documentIds.Any())
+        {
+            return Ok(new List<object>());
+        }
+
+        // Get all generated content for those documents
+        var contents = await context.GeneratedContents
+            .Include(gc => gc.Flashcards)
+            .Where(gc => documentIds.Contains(gc.StudyDocumentId))
             .OrderByDescending(gc => gc.GeneratedAt)
             .ToListAsync();
 
@@ -173,11 +210,10 @@ public class ContentGenerationController : ControllerBase
     }
 
     [HttpGet("{id}/pdf")]
-    public async Task<IActionResult> DownloadFlashcardsPdf(int id)
+    public async Task<IActionResult> DownloadPdf(int id)
     {
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var pdfService = scope.ServiceProvider.GetRequiredService<IFlashcardPdfGenerationService>();
 
         var content = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
@@ -188,23 +224,41 @@ public class ContentGenerationController : ControllerBase
             return NotFound();
         }
 
-        if (content.ProcessingType != ProcessingType.Flashcards)
-        {
-            return BadRequest(new { message = "PDF generation is only available for flashcards" });
-        }
-
-        if (content.Flashcards == null || !content.Flashcards.Any())
-        {
-            return BadRequest(new { message = "No flashcards found for this content" });
-        }
-
         try
         {
-            var pdfBytes = pdfService.GenerateFlashcardPdf(content);
-            var fileName = $"flashcards_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
-            
-            _logger.LogInformation("Generated PDF for content {ContentId}", id);
-            
+            byte[] pdfBytes;
+            string fileName;
+
+            switch (content.ProcessingType)
+            {
+                case ProcessingType.Flashcards:
+                    if (content.Flashcards == null || !content.Flashcards.Any())
+                    {
+                        return BadRequest(new { message = "No flashcards found for this content" });
+                    }
+                    var flashcardService = scope.ServiceProvider.GetRequiredService<IFlashcardPdfGenerationService>();
+                    pdfBytes = flashcardService.GenerateFlashcardPdf(content);
+                    fileName = $"flashcards_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+                    break;
+
+                case ProcessingType.PracticeTest:
+                    var practiceTestService = scope.ServiceProvider.GetRequiredService<IPracticeTestPdfGenerationService>();
+                    pdfBytes = practiceTestService.GeneratePracticeTestPdf(content);
+                    fileName = $"practice_test_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+                    break;
+
+                case ProcessingType.Summary:
+                    var summaryService = scope.ServiceProvider.GetRequiredService<ISummaryPdfGenerationService>();
+                    pdfBytes = summaryService.GenerateSummaryPdf(content);
+                    fileName = $"summary_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+                    break;
+
+                default:
+                    return BadRequest(new { message = $"PDF generation not supported for {content.ProcessingType}" });
+            }
+
+            _logger.LogInformation("Generated {Type} PDF for content {ContentId}", content.ProcessingType, id);
+
             return File(pdfBytes, "application/pdf", fileName);
         }
         catch (Exception ex)

@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Components.Forms;
 using StudieAssistenten.Shared.DTOs;
 
 namespace StudieAssistenten.Client.Services;
@@ -8,8 +9,9 @@ namespace StudieAssistenten.Client.Services;
 /// </summary>
 public interface IDocumentService
 {
-    Task<DocumentDto?> UploadDocumentAsync(Stream fileStream, string fileName, string contentType, long fileSize, string? teacherInstructions = null);
-    Task<List<DocumentDto>> GetAllDocumentsAsync();
+    Task<DocumentDto?> UploadDocumentAsync(Stream fileStream, string fileName, string contentType, long fileSize, int? testId = null);
+    Task<DocumentDto?> UploadDocumentAsync(IBrowserFile file, int? testId = null);
+    Task<List<DocumentDto>> GetDocumentsAsync();
     Task<DocumentDto?> GetDocumentAsync(int documentId);
     Task<bool> DeleteDocumentAsync(int documentId);
     Task<bool> TriggerOcrProcessingAsync(int documentId);
@@ -32,7 +34,7 @@ public class DocumentService : IDocumentService
         string fileName, 
         string contentType, 
         long fileSize,
-        string? teacherInstructions = null)
+        int? testId = null)
     {
         try
         {
@@ -42,9 +44,9 @@ public class DocumentService : IDocumentService
             streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
             content.Add(streamContent, "file", fileName);
 
-            if (!string.IsNullOrWhiteSpace(teacherInstructions))
+            if (testId.HasValue)
             {
-                content.Add(new StringContent(teacherInstructions), "teacherInstructions");
+                content.Add(new StringContent(testId.Value.ToString()), "testId");
             }
 
             var response = await _httpClient.PostAsync("api/documents/upload", content);
@@ -67,7 +69,23 @@ public class DocumentService : IDocumentService
         }
     }
 
-    public async Task<List<DocumentDto>> GetAllDocumentsAsync()
+    public async Task<DocumentDto?> UploadDocumentAsync(IBrowserFile file, int? testId = null)
+    {
+        const long maxFileSize = 60 * 1024 * 1024; // 60 MB
+        
+        try
+        {
+            using var stream = file.OpenReadStream(maxFileSize);
+            return await UploadDocumentAsync(stream, file.Name, file.ContentType, file.Size, testId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading browser file: {FileName}", file.Name);
+            return null;
+        }
+    }
+
+    public async Task<List<DocumentDto>> GetDocumentsAsync()
     {
         try
         {

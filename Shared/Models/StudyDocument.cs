@@ -24,10 +24,11 @@ public class StudyDocument
     /// </summary>
     public string? ExtractedText { get; set; }
     
-    /// <summary>
-    /// Any additional instructions from the teacher
-    /// </summary>
-    public string? TeacherInstructions { get; set; }
+    // Foreign key to Test
+    public int? TestId { get; set; }
+    
+    // Navigation property
+    public Test? Test { get; set; }
     
     public ICollection<GeneratedContent> GeneratedContents { get; set; } = new List<GeneratedContent>();
 }

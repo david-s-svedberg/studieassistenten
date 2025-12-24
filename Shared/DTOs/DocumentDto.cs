@@ -19,5 +19,5 @@ public class DocumentDto
     
     public string? ExtractedText { get; set; }
     
-    public string? TeacherInstructions { get; set; }
+    public int? TestId { get; set; }
 }

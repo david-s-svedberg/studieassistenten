@@ -39,4 +39,16 @@ public class ContentGenerationService
         var response = await _httpClient.DeleteAsync($"api/ContentGeneration/{contentId}");
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task<List<GeneratedContentDto>> GetTestContentsAsync(int testId)
+    {
+        var response = await _httpClient.GetAsync($"api/ContentGeneration/test/{testId}");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<GeneratedContentDto>>() ?? new List<GeneratedContentDto>();
+    }
+
+    public string GetPdfUrl(int contentId)
+    {
+        return $"api/ContentGeneration/{contentId}/pdf";
+    }
 }
