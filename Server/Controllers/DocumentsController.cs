@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StudieAssistenten.Server.Services;
 using StudieAssistenten.Shared.DTOs;
+using System.Security.Claims;
 
 namespace StudieAssistenten.Server.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class DocumentsController : ControllerBase
@@ -27,6 +30,12 @@ public class DocumentsController : ControllerBase
     {
         try
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
             if (file == null || file.Length == 0)
             {
                 return BadRequest("No file uploaded");
@@ -64,7 +73,7 @@ public class DocumentsController : ControllerBase
             };
 
             using var stream = file.OpenReadStream();
-            var result = await _fileUploadService.UploadDocumentAsync(stream, uploadDto);
+            var result = await _fileUploadService.UploadDocumentAsync(stream, uploadDto, userId);
 
             return Ok(result);
         }
@@ -83,7 +92,13 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var documents = await _fileUploadService.GetAllDocumentsAsync();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var documents = await _fileUploadService.GetAllDocumentsAsync(userId);
             return Ok(documents);
         }
         catch (Exception ex)
@@ -101,7 +116,13 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var document = await _fileUploadService.GetDocumentAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var document = await _fileUploadService.GetDocumentAsync(id, userId);
             if (document == null)
             {
                 return NotFound();
@@ -124,7 +145,13 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var result = await _fileUploadService.DeleteDocumentAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var result = await _fileUploadService.DeleteDocumentAsync(id, userId);
             if (!result)
             {
                 return NotFound();

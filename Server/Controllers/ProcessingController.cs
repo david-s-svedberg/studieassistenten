@@ -1,8 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using StudieAssistenten.Server.Data;
 using StudieAssistenten.Server.Services;
+using System.Security.Claims;
 
 namespace StudieAssistenten.Server.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class ProcessingController : ControllerBase
@@ -22,17 +27,36 @@ public class ProcessingController : ControllerBase
     /// Trigger OCR/text extraction for a document
     /// </summary>
     [HttpPost("{documentId}/extract")]
-    public IActionResult ExtractText(int documentId)
+    public async Task<IActionResult> ExtractText(int documentId)
     {
         try
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            // Verify document ownership via Test relationship
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var document = await context.StudyDocuments
+                .Include(d => d.Test)
+                .FirstOrDefaultAsync(d => d.Id == documentId);
+
+            if (document == null || document.Test == null || document.Test.UserId != userId)
+            {
+                return NotFound();
+            }
+
             // Start processing in background with a new scope
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    using var scope = _serviceProvider.CreateScope();
-                    var processingService = scope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();
+                    using var processingScope = _serviceProvider.CreateScope();
+                    var processingService = processingScope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();
                     await processingService.ProcessDocumentAsync(documentId);
                 }
                 catch (Exception ex)
@@ -58,9 +82,27 @@ public class ProcessingController : ControllerBase
     {
         try
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
             using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            // Verify document ownership via Test relationship
+            var document = await context.StudyDocuments
+                .Include(d => d.Test)
+                .FirstOrDefaultAsync(d => d.Id == documentId);
+
+            if (document == null || document.Test == null || document.Test.UserId != userId)
+            {
+                return NotFound();
+            }
+
             var fileUploadService = scope.ServiceProvider.GetRequiredService<IFileUploadService>();
-            var result = await fileUploadService.UpdateExtractedTextAsync(documentId, request.Text);
+            var result = await fileUploadService.UpdateExtractedTextAsync(documentId, request.Text, userId);
             if (!result)
             {
                 return NotFound();

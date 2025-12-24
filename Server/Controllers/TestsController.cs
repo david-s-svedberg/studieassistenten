@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StudieAssistenten.Server.Services;
 using StudieAssistenten.Shared.DTOs;
+using System.Security.Claims;
 
 namespace StudieAssistenten.Server.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class TestsController : ControllerBase
@@ -35,7 +38,13 @@ public class TestsController : ControllerBase
                 return BadRequest("Test name is required");
             }
 
-            var result = await _testService.CreateTestAsync(request);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var result = await _testService.CreateTestAsync(request, userId);
             return Ok(result);
         }
         catch (Exception ex)
@@ -53,7 +62,13 @@ public class TestsController : ControllerBase
     {
         try
         {
-            var tests = await _testService.GetAllTestsAsync();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var tests = await _testService.GetAllTestsAsync(userId);
             return Ok(tests);
         }
         catch (Exception ex)
@@ -71,7 +86,13 @@ public class TestsController : ControllerBase
     {
         try
         {
-            var test = await _testService.GetTestAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var test = await _testService.GetTestAsync(id, userId);
             if (test == null)
             {
                 return NotFound($"Test with ID {id} not found");
@@ -99,7 +120,13 @@ public class TestsController : ControllerBase
                 return BadRequest("Test name is required");
             }
 
-            var success = await _testService.UpdateTestAsync(id, request);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var success = await _testService.UpdateTestAsync(id, request, userId);
             if (!success)
             {
                 return NotFound($"Test with ID {id} not found");
@@ -122,7 +149,13 @@ public class TestsController : ControllerBase
     {
         try
         {
-            var success = await _testService.DeleteTestAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var success = await _testService.DeleteTestAsync(id, userId);
             if (!success)
             {
                 return NotFound($"Test with ID {id} not found");
@@ -145,7 +178,13 @@ public class TestsController : ControllerBase
     {
         try
         {
-            var test = await _testService.GetTestAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var test = await _testService.GetTestAsync(id, userId);
             if (test == null)
             {
                 return NotFound($"Test with ID {id} not found");
@@ -161,7 +200,7 @@ public class TestsController : ControllerBase
                 Instructions = test.Instructions ?? ""
             };
 
-            await _testService.UpdateTestAsync(id, updateRequest);
+            await _testService.UpdateTestAsync(id, updateRequest, userId);
 
             return Ok(suggestedName);
         }

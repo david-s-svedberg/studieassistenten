@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Server.Services;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
+using System.Security.Claims;
 
 namespace StudieAssistenten.Server.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class ContentGenerationController : ControllerBase
@@ -27,14 +30,23 @@ public class ContentGenerationController : ControllerBase
     {
         try
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
             // Create a new scope for background processing
             using var scope = _serviceProvider.CreateScope();
             var aiService = scope.ServiceProvider.GetRequiredService<IAiContentGenerationService>();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            // Update document status
-            var document = await context.StudyDocuments.FindAsync(request.DocumentId);
-            if (document == null)
+            // Get document and verify ownership via Test relationship
+            var document = await context.StudyDocuments
+                .Include(d => d.Test)
+                .FirstOrDefaultAsync(d => d.Id == request.DocumentId);
+
+            if (document == null || document.Test == null || document.Test.UserId != userId)
             {
                 return NotFound(new { message = "Document not found" });
             }
@@ -78,8 +90,24 @@ public class ContentGenerationController : ControllerBase
     [HttpGet("document/{documentId}")]
     public async Task<IActionResult> GetGeneratedContent(int documentId)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        // Verify document ownership via Test relationship
+        var document = await context.StudyDocuments
+            .Include(d => d.Test)
+            .FirstOrDefaultAsync(d => d.Id == documentId);
+
+        if (document == null || document.Test == null || document.Test.UserId != userId)
+        {
+            return NotFound();
+        }
 
         var contents = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
@@ -110,8 +138,21 @@ public class ContentGenerationController : ControllerBase
     [HttpGet("test/{testId}")]
     public async Task<IActionResult> GetTestGeneratedContent(int testId)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        // Verify test ownership
+        var test = await context.Tests.FirstOrDefaultAsync(t => t.Id == testId && t.UserId == userId);
+        if (test == null)
+        {
+            return NotFound();
+        }
 
         // Get all documents for this test
         var documentIds = await context.StudyDocuments
@@ -154,14 +195,23 @@ public class ContentGenerationController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetContent(int id)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
+        // Get content and verify ownership via Document -> Test relationship
         var content = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.StudyDocument)
+                .ThenInclude(d => d.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null)
+        if (content == null || content.StudyDocument?.Test?.UserId != userId)
         {
             return NotFound();
         }
@@ -189,14 +239,23 @@ public class ContentGenerationController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteContent(int id)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
+        // Get content and verify ownership via Document -> Test relationship
         var content = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.StudyDocument)
+                .ThenInclude(d => d.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null)
+        if (content == null || content.StudyDocument?.Test?.UserId != userId)
         {
             return NotFound();
         }
@@ -212,14 +271,23 @@ public class ContentGenerationController : ControllerBase
     [HttpGet("{id}/pdf")]
     public async Task<IActionResult> DownloadPdf(int id)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
+        // Get content and verify ownership via Document -> Test relationship
         var content = await context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.StudyDocument)
+                .ThenInclude(d => d.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null)
+        if (content == null || content.StudyDocument?.Test?.UserId != userId)
         {
             return NotFound();
         }

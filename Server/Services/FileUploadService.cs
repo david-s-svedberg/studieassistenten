@@ -11,11 +11,11 @@ namespace StudieAssistenten.Server.Services;
 /// </summary>
 public interface IFileUploadService
 {
-    Task<DocumentDto> UploadDocumentAsync(Stream fileStream, DocumentUploadDto uploadDto);
-    Task<DocumentDto?> GetDocumentAsync(int documentId);
-    Task<List<DocumentDto>> GetAllDocumentsAsync();
-    Task<bool> DeleteDocumentAsync(int documentId);
-    Task<bool> UpdateExtractedTextAsync(int documentId, string extractedText);
+    Task<DocumentDto> UploadDocumentAsync(Stream fileStream, DocumentUploadDto uploadDto, string userId);
+    Task<DocumentDto?> GetDocumentAsync(int documentId, string userId);
+    Task<List<DocumentDto>> GetAllDocumentsAsync(string userId);
+    Task<bool> DeleteDocumentAsync(int documentId, string userId);
+    Task<bool> UpdateExtractedTextAsync(int documentId, string extractedText, string userId);
 }
 
 public class FileUploadService : IFileUploadService
@@ -42,10 +42,22 @@ public class FileUploadService : IFileUploadService
         }
     }
 
-    public async Task<DocumentDto> UploadDocumentAsync(Stream fileStream, DocumentUploadDto uploadDto)
+    public async Task<DocumentDto> UploadDocumentAsync(Stream fileStream, DocumentUploadDto uploadDto, string userId)
     {
         try
         {
+            // Verify test ownership if testId is provided
+            if (uploadDto.TestId.HasValue)
+            {
+                var test = await _context.Tests
+                    .FirstOrDefaultAsync(t => t.Id == uploadDto.TestId.Value && t.UserId == userId);
+
+                if (test == null)
+                {
+                    throw new UnauthorizedAccessException($"Test {uploadDto.TestId.Value} not found or access denied");
+                }
+            }
+
             // Generate unique file name
             var fileExtension = Path.GetExtension(uploadDto.FileName);
             var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
@@ -72,8 +84,8 @@ public class FileUploadService : IFileUploadService
             _context.StudyDocuments.Add(document);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Document uploaded successfully: {FileName} (ID: {DocumentId})", 
-                uploadDto.FileName, document.Id);
+            _logger.LogInformation("Document uploaded successfully: {FileName} (ID: {DocumentId}) for User: {UserId}",
+                uploadDto.FileName, document.Id, userId);
 
             return MapToDto(document);
         }
@@ -84,29 +96,41 @@ public class FileUploadService : IFileUploadService
         }
     }
 
-    public async Task<DocumentDto?> GetDocumentAsync(int documentId)
+    public async Task<DocumentDto?> GetDocumentAsync(int documentId, string userId)
     {
+        // Get document and verify ownership via Test relationship
         var document = await _context.StudyDocuments
+            .Include(d => d.Test)
             .FirstOrDefaultAsync(d => d.Id == documentId);
 
-        return document != null ? MapToDto(document) : null;
+        if (document == null || document.Test == null || document.Test.UserId != userId)
+        {
+            return null;
+        }
+
+        return MapToDto(document);
     }
 
-    public async Task<List<DocumentDto>> GetAllDocumentsAsync()
+    public async Task<List<DocumentDto>> GetAllDocumentsAsync(string userId)
     {
+        // Get all documents belonging to tests owned by the user
         var documents = await _context.StudyDocuments
+            .Include(d => d.Test)
+            .Where(d => d.Test != null && d.Test.UserId == userId)
             .OrderByDescending(d => d.UploadedAt)
             .ToListAsync();
 
         return documents.Select(MapToDto).ToList();
     }
 
-    public async Task<bool> DeleteDocumentAsync(int documentId)
+    public async Task<bool> DeleteDocumentAsync(int documentId, string userId)
     {
+        // Get document and verify ownership via Test relationship
         var document = await _context.StudyDocuments
+            .Include(d => d.Test)
             .FirstOrDefaultAsync(d => d.Id == documentId);
 
-        if (document == null)
+        if (document == null || document.Test == null || document.Test.UserId != userId)
             return false;
 
         // Delete physical file if exists
@@ -125,22 +149,24 @@ public class FileUploadService : IFileUploadService
         _context.StudyDocuments.Remove(document);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Document deleted: {DocumentId}", documentId);
+        _logger.LogInformation("Document deleted: {DocumentId} for User: {UserId}", documentId, userId);
         return true;
     }
 
-    public async Task<bool> UpdateExtractedTextAsync(int documentId, string extractedText)
+    public async Task<bool> UpdateExtractedTextAsync(int documentId, string extractedText, string userId)
     {
+        // Get document and verify ownership via Test relationship
         var document = await _context.StudyDocuments
+            .Include(d => d.Test)
             .FirstOrDefaultAsync(d => d.Id == documentId);
 
-        if (document == null)
+        if (document == null || document.Test == null || document.Test.UserId != userId)
             return false;
 
         document.ExtractedText = extractedText;
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Extracted text updated for document: {DocumentId}", documentId);
+        _logger.LogInformation("Extracted text updated for document: {DocumentId} for User: {UserId}", documentId, userId);
         return true;
     }
 

@@ -7,11 +7,11 @@ namespace StudieAssistenten.Server.Services;
 
 public interface ITestService
 {
-    Task<TestDto?> CreateTestAsync(CreateTestRequest request, string? userId = null);
-    Task<List<TestDto>> GetAllTestsAsync(string? userId = null);
-    Task<TestDto?> GetTestAsync(int testId);
-    Task<bool> UpdateTestAsync(int testId, CreateTestRequest request);
-    Task<bool> DeleteTestAsync(int testId);
+    Task<TestDto?> CreateTestAsync(CreateTestRequest request, string userId);
+    Task<List<TestDto>> GetAllTestsAsync(string userId);
+    Task<TestDto?> GetTestAsync(int testId, string? userId = null);
+    Task<bool> UpdateTestAsync(int testId, CreateTestRequest request, string userId);
+    Task<bool> DeleteTestAsync(int testId, string userId);
 }
 
 public class TestService : ITestService
@@ -25,57 +25,60 @@ public class TestService : ITestService
         _logger = logger;
     }
 
-    public async Task<TestDto?> CreateTestAsync(CreateTestRequest request, string? userId = null)
+    public async Task<TestDto?> CreateTestAsync(CreateTestRequest request, string userId)
     {
         var test = new Test
         {
             Name = request.Name,
             Description = request.Description,
             Instructions = request.Instructions,
-            UserId = userId,
+            UserId = userId, // Required
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Tests.Add(test);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Test created: {TestName} (ID: {TestId})", test.Name, test.Id);
+        _logger.LogInformation("Test created: {TestName} (ID: {TestId}) for User: {UserId}", test.Name, test.Id, userId);
 
         return MapToDto(test);
     }
 
-    public async Task<List<TestDto>> GetAllTestsAsync(string? userId = null)
+    public async Task<List<TestDto>> GetAllTestsAsync(string userId)
     {
-        var query = _context.Tests
+        var tests = await _context.Tests
             .Include(t => t.Documents)
             .Include(t => t.GeneratedContents)
-            .AsQueryable();
-
-        if (!string.IsNullOrEmpty(userId))
-        {
-            query = query.Where(t => t.UserId == userId);
-        }
-
-        var tests = await query
+            .Where(t => t.UserId == userId) // Filter by user
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         return tests.Select(MapToDto).ToList();
     }
 
-    public async Task<TestDto?> GetTestAsync(int testId)
+    public async Task<TestDto?> GetTestAsync(int testId, string? userId = null)
     {
-        var test = await _context.Tests
+        var query = _context.Tests
             .Include(t => t.Documents)
             .Include(t => t.GeneratedContents)
-            .FirstOrDefaultAsync(t => t.Id == testId);
+            .Where(t => t.Id == testId);
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            query = query.Where(t => t.UserId == userId); // Ownership check
+        }
+
+        var test = await query.FirstOrDefaultAsync();
 
         return test != null ? MapToDto(test) : null;
     }
 
-    public async Task<bool> UpdateTestAsync(int testId, CreateTestRequest request)
+    public async Task<bool> UpdateTestAsync(int testId, CreateTestRequest request, string userId)
     {
-        var test = await _context.Tests.FindAsync(testId);
+        var test = await _context.Tests
+            .Where(t => t.Id == testId && t.UserId == userId) // Ownership check
+            .FirstOrDefaultAsync();
+
         if (test == null)
         {
             return false;
@@ -93,9 +96,12 @@ public class TestService : ITestService
         return true;
     }
 
-    public async Task<bool> DeleteTestAsync(int testId)
+    public async Task<bool> DeleteTestAsync(int testId, string userId)
     {
-        var test = await _context.Tests.FindAsync(testId);
+        var test = await _context.Tests
+            .Where(t => t.Id == testId && t.UserId == userId) // Ownership check
+            .FirstOrDefaultAsync();
+
         if (test == null)
         {
             return false;

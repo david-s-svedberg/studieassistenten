@@ -1,12 +1,13 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Shared.Models;
 
 namespace StudieAssistenten.Server.Data;
 
 /// <summary>
-/// Database context for the Studieassistenten application
+/// Database context for the Studieassistenten application with Identity support
 /// </summary>
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
@@ -21,8 +22,22 @@ public class ApplicationDbContext : DbContext
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
-        
+        base.OnModelCreating(modelBuilder); // CRITICAL: Call base first for Identity tables
+
+        // Configure ApplicationUser
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(e => e.FullName).HasMaxLength(200);
+            entity.Property(e => e.ProfilePictureUrl).HasMaxLength(500);
+            entity.Property(e => e.CreatedAt).IsRequired();
+
+            // Relationship with Tests
+            entity.HasMany(e => e.Tests)
+                .WithOne(e => e.User)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // Configure StudyDocument
         modelBuilder.Entity<StudyDocument>(entity =>
         {
@@ -60,6 +75,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UserId).IsRequired(); // Make UserId non-nullable
 
             // Relationships
             entity.HasMany(e => e.Documents)
