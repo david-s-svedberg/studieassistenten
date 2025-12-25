@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using StudieAssistenten.Server.Authorization;
+using StudieAssistenten.Server.Infrastructure.Repositories;
 using StudieAssistenten.Server.Services;
 using StudieAssistenten.Shared.DTOs;
-using System.Security.Claims;
 
 namespace StudieAssistenten.Server.Controllers;
 
@@ -12,16 +13,22 @@ namespace StudieAssistenten.Server.Controllers;
 public class TestsController : BaseApiController
 {
     private readonly ITestService _testService;
+    private readonly ITestRepository _testRepository;
     private readonly IAiContentGenerationService _aiService;
+    private readonly IAuthorizationService _authorizationService;
     private readonly ILogger<TestsController> _logger;
 
     public TestsController(
         ITestService testService,
+        ITestRepository testRepository,
         IAiContentGenerationService aiService,
+        IAuthorizationService authorizationService,
         ILogger<TestsController> logger)
     {
         _testService = testService;
+        _testRepository = testRepository;
         _aiService = aiService;
+        _authorizationService = authorizationService;
         _logger = logger;
     }
 
@@ -126,20 +133,32 @@ public class TestsController : BaseApiController
     }
 
     /// <summary>
-    /// Delete a test
+    /// Delete a test (with resource-based authorization)
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(int id)
     {
         try
         {
-            var userId = GetCurrentUserId();
-
-            var success = await _testService.DeleteTestAsync(id, userId);
-            if (!success)
+            // Fetch the resource first
+            var test = await _testRepository.GetByIdAsync(id);
+            if (test == null)
             {
                 return NotFound($"Test with ID {id} not found");
             }
+
+            // Check authorization against the resource
+            var authResult = await _authorizationService.AuthorizeAsync(
+                User, test, ResourceOperations.Delete);
+
+            if (!authResult.Succeeded)
+            {
+                return Forbid();
+            }
+
+            // Proceed with deletion
+            var userId = GetCurrentUserId();
+            var success = await _testService.DeleteTestAsync(id, userId);
 
             return NoContent();
         }

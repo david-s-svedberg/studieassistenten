@@ -136,6 +136,11 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Register authorization handlers
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, StudieAssistenten.Server.Authorization.TestAuthorizationHandler>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, StudieAssistenten.Server.Authorization.DocumentAuthorizationHandler>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, StudieAssistenten.Server.Authorization.GeneratedContentAuthorizationHandler>();
+
 // Register AutoMapper
 builder.Services.AddAutoMapper(typeof(Program));
 
