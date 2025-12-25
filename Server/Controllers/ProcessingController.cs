@@ -14,20 +14,20 @@ namespace StudieAssistenten.Server.Controllers;
 public class ProcessingController : BaseApiController
 {
     private readonly ApplicationDbContext _context;
-    private readonly IDocumentProcessingService _processingService;
+    private readonly IServiceProvider _serviceProvider;
     private readonly IFileUploadService _fileUploadService;
     private readonly ILogger<ProcessingController> _logger;
     private readonly IHostApplicationLifetime _lifetime;
 
     public ProcessingController(
         ApplicationDbContext context,
-        IDocumentProcessingService processingService,
+        IServiceProvider serviceProvider,
         IFileUploadService fileUploadService,
         ILogger<ProcessingController> logger,
         IHostApplicationLifetime lifetime)
     {
         _context = context;
-        _processingService = processingService;
+        _serviceProvider = serviceProvider;
         _fileUploadService = fileUploadService;
         _logger = logger;
         _lifetime = lifetime;
@@ -62,6 +62,10 @@ public class ProcessingController : BaseApiController
 
             _ = Task.Run(async () =>
             {
+                // Create a new scope for background work to get fresh DbContext
+                using var scope = _serviceProvider.CreateScope();
+                var processingService = scope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();
+
                 try
                 {
                     // Check if cancellation was requested before starting
@@ -72,7 +76,7 @@ public class ProcessingController : BaseApiController
                     }
 
                     // Process document with cancellation support
-                    await _processingService.ProcessDocumentAsync(documentId);
+                    await processingService.ProcessDocumentAsync(documentId);
 
                     _logger.LogInformation("Background processing completed successfully for document {DocumentId}", documentId);
                 }
