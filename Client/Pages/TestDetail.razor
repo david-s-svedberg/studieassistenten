@@ -8,6 +8,7 @@
 @inject ContentGenerationService ContentService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject HttpClient Http
 
 <PageTitle>@(test?.Name ?? "Test")</PageTitle>
 
@@ -169,9 +170,21 @@ else
 
         @* Upload Component - Always visible at bottom *@
         <div class="upload-section mt-3">
-            <h3>Upload Documents</h3>
+            <h3>Add Content</h3>
 
-            @if (isUploading)
+            @* Tab Selector *@
+            <div class="content-tabs">
+                <button class="tab-btn @(uploadMode == "files" ? "active" : "")"
+                        @onclick='() => uploadMode = "files"'>
+                    <i class="bi bi-cloud-upload"></i> Upload Files
+                </button>
+                <button class="tab-btn @(uploadMode == "text" ? "active" : "")"
+                        @onclick='() => uploadMode = "text"'>
+                    <i class="bi bi-pencil-square"></i> Enter Text
+                </button>
+            </div>
+
+            @if (uploadMode == "files" && isUploading)
             {
                 <div class="upload-area">
                     <div class="text-center py-5">
@@ -192,7 +205,7 @@ else
                     </div>
                 </div>
             }
-            else
+            else if (uploadMode == "files")
             {
                 <div class="upload-area">
                     <div class="file-input-wrapper">
@@ -200,6 +213,11 @@ else
                                   OnChange="@HandleFileSelected"
                                   class="file-input"
                                   accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
+                                  multiple />
+                        <InputFile id="cameraInput"
+                                  OnChange="@HandleFileSelected"
+                                  class="file-input"
+                                  accept="image/*"
                                   capture="environment"
                                   multiple />
                         <label for="fileInput" class="file-input-label">
@@ -211,6 +229,14 @@ else
                                 PDF, Images, Text files (Max 60MB each)
                             </div>
                         </label>
+
+                        @* Dedicated Camera Button for Mobile *@
+                        <div class="camera-button-wrapper">
+                            <label for="cameraInput" class="btn btn-primary camera-btn">
+                                <i class="bi bi-camera-fill me-2"></i>
+                                Take Photo
+                            </label>
+                        </div>
                     </div>
 
                     @if (selectedFiles.Any())
@@ -239,6 +265,41 @@ else
                             <i class="bi bi-exclamation-triangle"></i> @uploadErrorMessage
                         </div>
                     }
+                </div>
+            }
+            else if (uploadMode == "text")
+            {
+                <div class="text-input-area">
+                    <textarea class="form-control text-input-box"
+                              @bind="textContent"
+                              placeholder="Type or paste your study material here...&#10;&#10;You can paste notes, lecture transcripts, or any text content you want to study from."
+                              rows="12"></textarea>
+
+                    @if (!string.IsNullOrWhiteSpace(textContentError))
+                    {
+                        <div class="alert alert-danger mt-2">@textContentError</div>
+                    }
+
+                    <div class="text-input-actions">
+                        <input type="text"
+                               class="form-control document-name-input"
+                               @bind="textDocumentName"
+                               placeholder="Document name (optional)" />
+                        <button class="btn btn-primary"
+                                @onclick="UploadTextContent"
+                                disabled="@(string.IsNullOrWhiteSpace(textContent) || isUploadingText)">
+                            @if (isUploadingText)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <text>Uploading...</text>
+                            }
+                            else
+                            {
+                                <i class="bi bi-upload me-2"></i>
+                                <text>Add Text Document</text>
+                            }
+                        </button>
+                    </div>
                 </div>
             }
         </div>
@@ -355,6 +416,133 @@ else
         margin-bottom: 1rem;
     }
 
+    .content-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #444654;
+    }
+
+    .tab-btn {
+        padding: 0.75rem 1.5rem;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-size: 1rem;
+        color: #ececf1;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tab-btn:hover {
+        color: #10b981;
+        background: rgba(16, 185, 129, 0.1);
+    }
+
+    .tab-btn.active {
+        color: #10b981;
+        border-bottom-color: #10b981;
+        font-weight: 600;
+    }
+
+    .camera-button-wrapper {
+        display: none;
+        margin-top: 1.5rem;
+        text-align: center;
+    }
+
+    .camera-btn {
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 8px;
+    }
+
+    @@media (max-width: 768px) {
+        .camera-button-wrapper {
+            display: block;
+        }
+
+        .content-tabs {
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .tab-btn {
+            width: 100%;
+            justify-content: center;
+            border-bottom: 1px solid #444654;
+            padding: 1rem;
+        }
+
+        .tab-btn.active {
+            background: rgba(16, 185, 129, 0.15);
+        }
+    }
+
+    .text-input-area {
+        background: #444654;
+        border-radius: 1rem;
+        padding: 1.5rem;
+    }
+
+    .text-input-box {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 1rem;
+        line-height: 1.6;
+        resize: vertical;
+        min-height: 300px;
+        background: #2a2b32;
+        border: 1px solid #565869;
+        color: #ececf1;
+    }
+
+    .text-input-box:focus {
+        background: #2a2b32;
+        border-color: #10b981;
+        color: #ececf1;
+        box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.25);
+    }
+
+    .text-input-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+        align-items: center;
+    }
+
+    .document-name-input {
+        flex: 1;
+        max-width: 300px;
+        background: #2a2b32;
+        border: 1px solid #565869;
+        color: #ececf1;
+    }
+
+    .document-name-input:focus {
+        background: #2a2b32;
+        border-color: #10b981;
+        color: #ececf1;
+        box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.25);
+    }
+
+    @@media (max-width: 768px) {
+        .text-input-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .document-name-input {
+            max-width: 100%;
+        }
+
+        .text-input-box {
+            min-height: 200px;
+        }
+    }
+
     .upload-area {
         background: #444654;
         border: 2px dashed #565869;
@@ -463,6 +651,13 @@ else
     private bool isProcessingOcr = false;
     private string uploadStatus = "";
     private string? uploadErrorMessage;
+    private string uploadMode = "files"; // "files" or "text"
+
+    // Text input state
+    private string textContent = "";
+    private string textDocumentName = "";
+    private bool isUploadingText = false;
+    private string? textContentError;
 
     // Smart naming state
     private bool hasAttemptedNaming = false;
@@ -623,6 +818,67 @@ else
         if (bytes < 1024) return $"{bytes} B";
         if (bytes < 1024 * 1024) return $"{bytes / 1024} KB";
         return $"{bytes / (1024 * 1024)} MB";
+    }
+
+    private async Task UploadTextContent()
+    {
+        if (test == null || string.IsNullOrWhiteSpace(textContent))
+            return;
+
+        textContentError = null;
+        isUploadingText = true;
+
+        try
+        {
+            // Create a filename
+            var fileName = string.IsNullOrWhiteSpace(textDocumentName)
+                ? $"Text Document - {DateTime.Now:yyyy-MM-dd HH-mm}.txt"
+                : $"{textDocumentName}.txt";
+
+            // Convert text to bytes
+            var textBytes = System.Text.Encoding.UTF8.GetBytes(textContent);
+            using var stream = new MemoryStream(textBytes);
+
+            // Upload as a document
+            var document = await DocumentService.UploadDocumentAsync(stream, fileName, "text/plain", textBytes.Length, test.Id);
+
+            if (document != null)
+            {
+                // For text documents, directly update the ExtractedText in the database
+                try
+                {
+                    await DocumentService.UpdateExtractedTextAsync(document.Id, textContent);
+                    Console.WriteLine($"[Text Upload] Set extracted text for document {document.Id}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to set extracted text: {ex.Message}");
+                    textContentError = "Text uploaded but failed to set content. Try editing the document.";
+                }
+
+                // Clear the text input
+                textContent = "";
+                textDocumentName = "";
+
+                // Reload the test to show the new document
+                await LoadTest();
+
+                // Switch back to files tab to show the uploaded document
+                uploadMode = "files";
+            }
+            else
+            {
+                textContentError = "Failed to upload text content";
+            }
+        }
+        catch (Exception ex)
+        {
+            textContentError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isUploadingText = false;
+        }
     }
 
     // Upload methods
