@@ -33,6 +33,7 @@ public class TestRepository : ITestRepository
         return await _context.Tests
             .Include(t => t.Documents)
                 .ThenInclude(d => d.GeneratedContents)
+            .AsSplitQuery()  // Use split query to avoid cartesian explosion
             .Where(t => t.Id == id && t.UserId == userId)
             .FirstOrDefaultAsync();
     }
@@ -50,6 +51,7 @@ public class TestRepository : ITestRepository
         return await _context.Tests
             .Include(t => t.Documents)
                 .ThenInclude(d => d.GeneratedContents)
+            .AsSplitQuery()  // Use split query to avoid cartesian explosion
             .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
