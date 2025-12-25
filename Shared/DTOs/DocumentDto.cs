@@ -13,6 +13,8 @@ public class DocumentDto
 
     public string StoredFileName { get; set; } = string.Empty;
 
+    public string? ContentType { get; set; }
+
     public long FileSizeBytes { get; set; }
 
     public DateTime UploadedAt { get; set; }

@@ -195,17 +195,14 @@ app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 
-// Serve uploaded files from the uploads directory
+// Note: Uploaded files are NOT served as static files for security reasons.
+// They are served through the DocumentsController with authorization checks.
+// Ensure uploads directory exists
 var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 if (!Directory.Exists(uploadsPath))
 {
     Directory.CreateDirectory(uploadsPath);
 }
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
-    RequestPath = "/uploads"
-});
 
 app.UseRouting();
 

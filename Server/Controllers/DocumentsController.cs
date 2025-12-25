@@ -165,4 +165,46 @@ public class DocumentsController : ControllerBase
             return StatusCode(500, "An error occurred while deleting the document");
         }
     }
+
+    /// <summary>
+    /// Download a document file (with authorization)
+    /// </summary>
+    [HttpGet("{id}/download")]
+    public async Task<ActionResult> Download(int id)
+    {
+        try
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var document = await _fileUploadService.GetDocumentAsync(id, userId);
+            if (document == null)
+            {
+                return NotFound();
+            }
+
+            // Get the physical file path
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", document.StoredFileName);
+
+            if (!System.IO.File.Exists(filePath))
+            {
+                _logger.LogError("File not found on disk: {FilePath}", filePath);
+                return NotFound("File not found on server");
+            }
+
+            // Read the file
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+
+            // Return file with appropriate content type
+            return File(fileBytes, document.ContentType ?? "application/octet-stream", document.FileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error downloading document {DocumentId}", id);
+            return StatusCode(500, "An error occurred while downloading the file");
+        }
+    }
 }

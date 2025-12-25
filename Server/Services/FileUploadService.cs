@@ -58,10 +58,31 @@ public class FileUploadService : IFileUploadService
                 }
             }
 
-            // Generate unique file name
-            var fileExtension = Path.GetExtension(uploadDto.FileName);
-            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+            // Sanitize filename to prevent path traversal attacks
+            // Only extract the filename part (remove any path components)
+            var safeFileName = Path.GetFileName(uploadDto.FileName);
+
+            // Get extension from sanitized filename
+            var fileExtension = Path.GetExtension(safeFileName);
+
+            // Validate extension is not empty and doesn't contain dangerous characters
+            if (string.IsNullOrWhiteSpace(fileExtension) || fileExtension.Contains("..") || fileExtension.Length > 10)
+            {
+                throw new InvalidOperationException("Invalid file extension");
+            }
+
+            // Generate unique file name with sanitized extension
+            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension.ToLowerInvariant()}";
             var filePath = Path.Combine(_uploadPath, uniqueFileName);
+
+            // Final safety check: ensure the resolved path is still within the upload directory
+            var fullPath = Path.GetFullPath(filePath);
+            var uploadPathFull = Path.GetFullPath(_uploadPath);
+            if (!fullPath.StartsWith(uploadPathFull, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Path traversal attempt detected: {FileName}", uploadDto.FileName);
+                throw new InvalidOperationException("Invalid file path");
+            }
 
             // Save file to disk
             using (var fileStreamOutput = new FileStream(filePath, FileMode.Create))
@@ -179,6 +200,7 @@ public class FileUploadService : IFileUploadService
             StoredFileName = !string.IsNullOrEmpty(document.OriginalFilePath)
                 ? Path.GetFileName(document.OriginalFilePath)
                 : string.Empty,
+            ContentType = document.ContentType,
             FileSizeBytes = document.FileSizeBytes,
             UploadedAt = document.UploadedAt,
             Status = document.Status,
