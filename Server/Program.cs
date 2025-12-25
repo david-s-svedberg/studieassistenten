@@ -241,10 +241,10 @@ app.Use(async (context, next) =>
     // Adjusted for Blazor WebAssembly requirements
     context.Response.Headers.Append("Content-Security-Policy",
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; " +  // Required for Blazor WASM
-        "style-src 'self' 'unsafe-inline'; " +                     // Required for Blazor inline styles
+        "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-AA99+JSnoA8VDU0S18bLsAs2mB/pE6UorFNrO+yEj0E='; " +  // Required for Blazor WASM + inline PWA script
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +  // Required for Blazor inline styles + Bootstrap Icons CDN
         "img-src 'self' data: https:; " +
-        "font-src 'self'; " +
+        "font-src 'self' https://cdn.jsdelivr.net; " +            // Bootstrap Icons fonts from CDN
         "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; " +  // Google OAuth
         "frame-src 'self' https://accounts.google.com; " +        // Google OAuth iframe
         "object-src 'none'; " +
