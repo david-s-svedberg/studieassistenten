@@ -13,15 +13,18 @@ public class DocumentsController : BaseApiController
 {
     private readonly IFileUploadService _fileUploadService;
     private readonly IFileValidationService _fileValidationService;
+    private readonly StudieAssistenten.Server.Infrastructure.Storage.IFileStorage _fileStorage;
     private readonly ILogger<DocumentsController> _logger;
 
     public DocumentsController(
         IFileUploadService fileUploadService,
         IFileValidationService fileValidationService,
+        StudieAssistenten.Server.Infrastructure.Storage.IFileStorage fileStorage,
         ILogger<DocumentsController> logger)
     {
         _fileUploadService = fileUploadService;
         _fileValidationService = fileValidationService;
+        _fileStorage = fileStorage;
         _logger = logger;
     }
 
@@ -186,20 +189,21 @@ public class DocumentsController : BaseApiController
                 return NotFound();
             }
 
-            // Get the physical file path
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", document.StoredFileName);
+            // Get the full file path using IFileStorage
+            var filePath = _fileStorage.GetFilePath(document.StoredFileName);
 
-            if (!System.IO.File.Exists(filePath))
+            // Check if file exists
+            if (!await _fileStorage.ExistsAsync(filePath))
             {
                 _logger.LogError("File not found on disk: {FilePath}", filePath);
                 return NotFound("File not found on server");
             }
 
-            // Read the file
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+            // Read the file using IFileStorage
+            var fileStream = await _fileStorage.ReadAsync(filePath);
 
             // Return file with appropriate content type
-            return File(fileBytes, document.ContentType ?? "application/octet-stream", document.FileName);
+            return File(fileStream, document.ContentType ?? "application/octet-stream", document.FileName);
         }
         catch (Exception ex)
         {

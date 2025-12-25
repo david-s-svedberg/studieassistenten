@@ -66,12 +66,12 @@ else
                     <div class="preview-card">
                         <div class="preview-header">
                             <h5>PDF Preview</h5>
-                            <a href="/uploads/@document.StoredFileName" target="_blank" class="btn btn-sm btn-outline-light">
+                            <a href="/api/documents/@DocumentId/download" target="_blank" class="btn btn-sm btn-outline-light">
                                 <i class="bi bi-box-arrow-up-right"></i> Open in New Tab
                             </a>
                         </div>
                         <div class="preview-body">
-                            <iframe src="/uploads/@document.StoredFileName" style="width: 100%; height: 600px; border: none;"></iframe>
+                            <iframe src="/api/documents/@DocumentId/download" style="width: 100%; height: 600px; border: none;"></iframe>
                         </div>
                     </div>
                 </div>
