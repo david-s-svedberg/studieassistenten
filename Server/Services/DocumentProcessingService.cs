@@ -41,12 +41,18 @@ public class DocumentProcessingService : IDocumentProcessingService
 
     public async Task ProcessDocumentAsync(int documentId)
     {
+        _logger.LogInformation("=== ProcessDocumentAsync started for document {DocumentId} ===", documentId);
+
         var document = await _context.StudyDocuments.FindAsync(documentId);
         if (document == null)
         {
             _logger.LogWarning("Document {DocumentId} not found", documentId);
             return;
         }
+
+        _logger.LogInformation(
+            "Document found: Id={DocumentId}, FileName={FileName}, Status={Status}, FilePath={FilePath}",
+            documentId, document.FileName, document.Status, document.OriginalFilePath);
 
         if (string.IsNullOrEmpty(document.OriginalFilePath) || !await _fileStorage.ExistsAsync(document.OriginalFilePath))
         {
@@ -56,18 +62,27 @@ public class DocumentProcessingService : IDocumentProcessingService
             return;
         }
 
+        _logger.LogInformation("File exists at: {FilePath}", document.OriginalFilePath);
+
         try
         {
             _logger.LogInformation("Processing document {DocumentId}: {FileName}", documentId, document.FileName);
+
+            // Update status to OcrInProgress
+            document.Status = DocumentStatus.OcrInProgress;
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Document status updated to OcrInProgress");
 
             string extractedText = string.Empty;
 
             // Determine processing based on file type
             var extension = Path.GetExtension(document.FileName).ToLowerInvariant();
+            _logger.LogInformation("File extension detected: {Extension}", extension);
 
             switch (extension)
             {
                 case ".pdf":
+                    _logger.LogInformation("Processing as PDF");
                     extractedText = await ProcessPdfAsync(document.OriginalFilePath);
                     break;
 
@@ -77,10 +92,12 @@ public class DocumentProcessingService : IDocumentProcessingService
                 case ".bmp":
                 case ".tiff":
                 case ".tif":
+                    _logger.LogInformation("Processing as image with OCR");
                     extractedText = await ProcessImageAsync(document.OriginalFilePath);
                     break;
 
                 case ".txt":
+                    _logger.LogInformation("Processing as text file");
                     using (var stream = await _fileStorage.ReadAsync(document.OriginalFilePath))
                     using (var reader = new StreamReader(stream))
                     {
@@ -95,15 +112,19 @@ public class DocumentProcessingService : IDocumentProcessingService
                     return;
             }
 
+            _logger.LogInformation("Extraction completed. Text length: {Length}", extractedText?.Length ?? 0);
+
             document.ExtractedText = extractedText;
-            document.Status = string.IsNullOrWhiteSpace(extractedText) 
-                ? DocumentStatus.OcrFailed 
+            document.Status = string.IsNullOrWhiteSpace(extractedText)
+                ? DocumentStatus.OcrFailed
                 : DocumentStatus.OcrCompleted;
 
+            _logger.LogInformation("Setting document status to: {Status}", document.Status);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Successfully processed document {DocumentId}. Extracted {Length} characters",
-                documentId, extractedText.Length);
+            _logger.LogInformation(
+                "=== Successfully processed document {DocumentId}. Extracted {Length} characters, Status: {Status} ===",
+                documentId, extractedText?.Length ?? 0, document.Status);
         }
         catch (Exception ex)
         {

@@ -62,12 +62,17 @@ public class ProcessingController : BaseApiController
 
             _ = Task.Run(async () =>
             {
-                // Create a new scope for background work to get fresh DbContext
-                using var scope = _serviceProvider.CreateScope();
-                var processingService = scope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();
+                _logger.LogInformation("Background task started for document {DocumentId}", documentId);
 
                 try
                 {
+                    // Create a new scope for background work to get fresh DbContext
+                    using var scope = _serviceProvider.CreateScope();
+                    _logger.LogInformation("Service scope created for document {DocumentId}", documentId);
+
+                    var processingService = scope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();
+                    _logger.LogInformation("DocumentProcessingService resolved for document {DocumentId}", documentId);
+
                     // Check if cancellation was requested before starting
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -86,7 +91,8 @@ public class ProcessingController : BaseApiController
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Background processing failed for document {DocumentId}", documentId);
+                    _logger.LogError(ex, "CRITICAL: Background processing failed for document {DocumentId}. Exception: {ExceptionType}, Message: {Message}, StackTrace: {StackTrace}",
+                        documentId, ex.GetType().Name, ex.Message, ex.StackTrace);
                 }
             }, cancellationToken);
 

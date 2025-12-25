@@ -412,14 +412,22 @@ else
                 await Task.Delay(2000);
                 await LoadDocument();
                 StateHasChanged();
-                
-                // Check if processing is complete
-                if (document.Status != DocumentStatus.OcrInProgress && 
-                    document.Status != DocumentStatus.Uploaded)
+
+                // Check if processing is complete (succeeded or failed)
+                if (document.Status == DocumentStatus.OcrCompleted ||
+                    document.Status == DocumentStatus.OcrFailed ||
+                    document.Status == DocumentStatus.ProcessingCompleted ||
+                    document.Status == DocumentStatus.ProcessingFailed)
                 {
                     break;
                 }
-                
+
+                // If status is still Uploaded after a few attempts, something went wrong
+                if (attempts > 3 && document.Status == DocumentStatus.Uploaded)
+                {
+                    break;
+                }
+
                 attempts++;
             }
         }
