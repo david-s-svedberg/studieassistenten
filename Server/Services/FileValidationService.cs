@@ -1,5 +1,3 @@
-using System.IO;
-
 namespace StudieAssistenten.Server.Services;
 
 /// <summary>

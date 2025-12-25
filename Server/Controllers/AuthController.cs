@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using StudieAssistenten.Server.Services;
+using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Models;
 using System.Security.Claims;
 
@@ -154,14 +155,14 @@ public class AuthController : ControllerBase
             return NotFound();
         }
 
-        return Ok(new
+        return Ok(new UserDto
         {
-            user.Id,
-            user.Email,
-            user.FullName,
-            user.ProfilePictureUrl,
-            user.CreatedAt,
-            user.LastLoginAt
+            Id = user.Id,
+            Email = user.Email ?? string.Empty,
+            FullName = user.FullName,
+            ProfilePictureUrl = user.ProfilePictureUrl,
+            CreatedAt = user.CreatedAt,
+            LastLoginAt = user.LastLoginAt
         });
     }
 

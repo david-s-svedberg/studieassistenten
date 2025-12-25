@@ -5,6 +5,7 @@ using StudieAssistenten.Server.Data;
 using StudieAssistenten.Server.Services;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
+using StudieAssistenten.Shared.Models;
 using System.Security.Claims;
 
 namespace StudieAssistenten.Server.Controllers;
@@ -65,15 +66,7 @@ public class ContentGenerationController : ControllerBase
                 _ => throw new InvalidOperationException($"Unsupported processing type: {request.ProcessingType}")
             };
 
-            return Ok(new
-            {
-                generatedContent.Id,
-                generatedContent.Title,
-                generatedContent.ProcessingType,
-                generatedContent.GeneratedAt,
-                generatedContent.Content,
-                FlashcardsCount = generatedContent.Flashcards.Count
-            });
+            return Ok(MapToDto(generatedContent));
         }
         catch (InvalidOperationException ex)
         {
@@ -115,23 +108,7 @@ public class ContentGenerationController : ControllerBase
             .OrderByDescending(gc => gc.GeneratedAt)
             .ToListAsync();
 
-        var result = contents.Select(gc => new
-        {
-            gc.Id,
-            gc.Title,
-            gc.ProcessingType,
-            gc.GeneratedAt,
-            gc.Content,
-            FlashcardsCount = gc.Flashcards.Count,
-            Flashcards = gc.Flashcards.OrderBy(f => f.Order).Select(f => new
-            {
-                f.Id,
-                f.Question,
-                f.Answer,
-                f.Order
-            }).ToList()
-        }).ToList();
-
+        var result = contents.Select(MapToDto).ToList();
         return Ok(result);
     }
 
@@ -172,23 +149,7 @@ public class ContentGenerationController : ControllerBase
             .OrderByDescending(gc => gc.GeneratedAt)
             .ToListAsync();
 
-        var result = contents.Select(gc => new
-        {
-            gc.Id,
-            gc.Title,
-            gc.ProcessingType,
-            gc.GeneratedAt,
-            gc.Content,
-            FlashcardsCount = gc.Flashcards.Count,
-            Flashcards = gc.Flashcards.OrderBy(f => f.Order).Select(f => new
-            {
-                f.Id,
-                f.Question,
-                f.Answer,
-                f.Order
-            }).ToList()
-        }).ToList();
-
+        var result = contents.Select(MapToDto).ToList();
         return Ok(result);
     }
 
@@ -216,24 +177,7 @@ public class ContentGenerationController : ControllerBase
             return NotFound();
         }
 
-        var result = new
-        {
-            content.Id,
-            content.Title,
-            content.ProcessingType,
-            content.GeneratedAt,
-            content.Content,
-            FlashcardsCount = content.Flashcards.Count,
-            Flashcards = content.Flashcards.OrderBy(f => f.Order).Select(f => new
-            {
-                f.Id,
-                f.Question,
-                f.Answer,
-                f.Order
-            }).ToList()
-        };
-
-        return Ok(result);
+        return Ok(MapToDto(content));
     }
 
     [HttpDelete("{id}")]
@@ -335,5 +279,25 @@ public class ContentGenerationController : ControllerBase
             _logger.LogError(ex, "Error generating PDF for content {ContentId}", id);
             return StatusCode(500, new { message = "Error generating PDF" });
         }
+    }
+
+    private static GeneratedContentDto MapToDto(GeneratedContent content)
+    {
+        return new GeneratedContentDto
+        {
+            Id = content.Id,
+            Title = content.Title,
+            ProcessingType = content.ProcessingType,
+            GeneratedAt = content.GeneratedAt,
+            Content = content.Content ?? string.Empty,
+            FlashcardsCount = content.Flashcards?.Count ?? 0,
+            Flashcards = content.Flashcards?.OrderBy(f => f.Order).Select(f => new FlashcardDto
+            {
+                Id = f.Id,
+                Question = f.Question,
+                Answer = f.Answer,
+                Order = f.Order
+            }).ToList() ?? new List<FlashcardDto>()
+        };
     }
 }
