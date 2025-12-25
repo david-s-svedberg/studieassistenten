@@ -149,6 +149,9 @@ builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.
 builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.IDocumentRepository, StudieAssistenten.Server.Infrastructure.Repositories.DocumentRepository>();
 builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.IGeneratedContentRepository, StudieAssistenten.Server.Infrastructure.Repositories.GeneratedContentRepository>();
 
+// Register infrastructure services
+builder.Services.AddSingleton<StudieAssistenten.Server.Infrastructure.Storage.IFileStorage, StudieAssistenten.Server.Infrastructure.Storage.LocalFileStorage>();
+
 // Register application services
 builder.Services.AddScoped<IEmailWhitelistService, EmailWhitelistService>();
 builder.Services.AddScoped<ITestService, TestService>();

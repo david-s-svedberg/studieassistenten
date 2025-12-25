@@ -1,5 +1,6 @@
 using AutoMapper;
 using StudieAssistenten.Server.Data;
+using StudieAssistenten.Server.Infrastructure.Storage;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
@@ -24,28 +25,20 @@ public interface IFileUploadService
 public class FileUploadService : IFileUploadService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IFileStorage _fileStorage;
     private readonly IMapper _mapper;
     private readonly ILogger<FileUploadService> _logger;
-    private readonly IConfiguration _configuration;
-    private readonly string _uploadPath;
 
     public FileUploadService(
         ApplicationDbContext context,
+        IFileStorage fileStorage,
         IMapper mapper,
-        ILogger<FileUploadService> logger,
-        IConfiguration configuration)
+        ILogger<FileUploadService> logger)
     {
         _context = context;
+        _fileStorage = fileStorage;
         _mapper = mapper;
         _logger = logger;
-        _configuration = configuration;
-        
-        // Set up upload directory
-        _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
-        if (!Directory.Exists(_uploadPath))
-        {
-            Directory.CreateDirectory(_uploadPath);
-        }
     }
 
     public async Task<DocumentDto> UploadDocumentAsync(Stream fileStream, DocumentUploadDto uploadDto, string userId)
@@ -79,22 +72,9 @@ public class FileUploadService : IFileUploadService
 
             // Generate unique file name with sanitized extension
             var uniqueFileName = $"{Guid.NewGuid()}{fileExtension.ToLowerInvariant()}";
-            var filePath = Path.Combine(_uploadPath, uniqueFileName);
 
-            // Final safety check: ensure the resolved path is still within the upload directory
-            var fullPath = Path.GetFullPath(filePath);
-            var uploadPathFull = Path.GetFullPath(_uploadPath);
-            if (!fullPath.StartsWith(uploadPathFull, StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning("Path traversal attempt detected: {FileName}", uploadDto.FileName);
-                throw new InvalidOperationException("Invalid file path");
-            }
-
-            // Save file to disk
-            using (var fileStreamOutput = new FileStream(filePath, FileMode.Create))
-            {
-                await fileStream.CopyToAsync(fileStreamOutput);
-            }
+            // Save file using IFileStorage abstraction (includes path traversal protection)
+            var filePath = await _fileStorage.SaveAsync(fileStream, uniqueFileName);
 
             // Create database entry
             var document = new StudyDocument
@@ -182,11 +162,11 @@ public class FileUploadService : IFileUploadService
             return false;
 
         // Delete physical file if exists
-        if (!string.IsNullOrEmpty(document.OriginalFilePath) && File.Exists(document.OriginalFilePath))
+        if (!string.IsNullOrEmpty(document.OriginalFilePath))
         {
             try
             {
-                File.Delete(document.OriginalFilePath);
+                await _fileStorage.DeleteAsync(document.OriginalFilePath);
             }
             catch (Exception ex)
             {

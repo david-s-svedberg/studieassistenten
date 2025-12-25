@@ -23,15 +23,18 @@ public class DocumentProcessingService : IDocumentProcessingService
 {
     private readonly ApplicationDbContext _context;
     private readonly IOcrService _ocrService;
+    private readonly StudieAssistenten.Server.Infrastructure.Storage.IFileStorage _fileStorage;
     private readonly ILogger<DocumentProcessingService> _logger;
 
     public DocumentProcessingService(
         ApplicationDbContext context,
         IOcrService ocrService,
+        StudieAssistenten.Server.Infrastructure.Storage.IFileStorage fileStorage,
         ILogger<DocumentProcessingService> logger)
     {
         _context = context;
         _ocrService = ocrService;
+        _fileStorage = fileStorage;
         _logger = logger;
     }
 
@@ -44,7 +47,7 @@ public class DocumentProcessingService : IDocumentProcessingService
             return;
         }
 
-        if (string.IsNullOrEmpty(document.OriginalFilePath) || !File.Exists(document.OriginalFilePath))
+        if (string.IsNullOrEmpty(document.OriginalFilePath) || !await _fileStorage.ExistsAsync(document.OriginalFilePath))
         {
             _logger.LogError("File not found for document {DocumentId}: {FilePath}", documentId, document.OriginalFilePath);
             document.Status = DocumentStatus.OcrFailed;
@@ -77,7 +80,11 @@ public class DocumentProcessingService : IDocumentProcessingService
                     break;
 
                 case ".txt":
-                    extractedText = await File.ReadAllTextAsync(document.OriginalFilePath);
+                    using (var stream = await _fileStorage.ReadAsync(document.OriginalFilePath))
+                    using (var reader = new StreamReader(stream))
+                    {
+                        extractedText = await reader.ReadToEndAsync();
+                    }
                     break;
 
                 default:
