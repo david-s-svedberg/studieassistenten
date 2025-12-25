@@ -12,13 +12,16 @@ namespace StudieAssistenten.Server.Controllers;
 public class DocumentsController : ControllerBase
 {
     private readonly IFileUploadService _fileUploadService;
+    private readonly IFileValidationService _fileValidationService;
     private readonly ILogger<DocumentsController> _logger;
 
     public DocumentsController(
         IFileUploadService fileUploadService,
+        IFileValidationService fileValidationService,
         ILogger<DocumentsController> logger)
     {
         _fileUploadService = fileUploadService;
+        _fileValidationService = fileValidationService;
         _logger = logger;
     }
 
@@ -48,7 +51,7 @@ public class DocumentsController : ControllerBase
                 return BadRequest("File size exceeds maximum allowed size of 50MB");
             }
 
-            // Validate file type
+            // Validate file type by Content-Type header
             var allowedContentTypes = new[]
             {
                 "application/pdf",
@@ -62,6 +65,23 @@ public class DocumentsController : ControllerBase
             if (!allowedContentTypes.Contains(file.ContentType.ToLower()))
             {
                 return BadRequest($"File type '{file.ContentType}' is not supported. Allowed types: PDF, JPEG, PNG, TXT, DOCX");
+            }
+
+            // Validate actual file content (magic bytes) to prevent file type spoofing
+            using var validationStream = file.OpenReadStream();
+            var (isValid, detectedType) = await _fileValidationService.ValidateFileContentAsync(validationStream, file.ContentType);
+
+            if (!isValid)
+            {
+                _logger.LogWarning(
+                    "File content validation failed for {FileName}. Claimed: {ClaimedType}, Detected: {DetectedType}",
+                    file.FileName,
+                    file.ContentType,
+                    detectedType ?? "unknown");
+
+                return BadRequest(
+                    $"File content does not match the claimed type '{file.ContentType}'. " +
+                    $"This may indicate a malicious file or corrupted upload.");
             }
 
             var uploadDto = new DocumentUploadDto
