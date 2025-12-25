@@ -1,3 +1,4 @@
+using AutoMapper;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
@@ -13,7 +14,9 @@ public interface IFileUploadService
 {
     Task<DocumentDto> UploadDocumentAsync(Stream fileStream, DocumentUploadDto uploadDto, string userId);
     Task<DocumentDto?> GetDocumentAsync(int documentId, string userId);
+    Task<DocumentDetailDto?> GetDocumentDetailAsync(int documentId, string userId);
     Task<List<DocumentDto>> GetAllDocumentsAsync(string userId);
+    Task<List<DocumentSummaryDto>> GetAllDocumentsSummaryAsync(string userId);
     Task<bool> DeleteDocumentAsync(int documentId, string userId);
     Task<bool> UpdateExtractedTextAsync(int documentId, string extractedText, string userId);
 }
@@ -21,16 +24,19 @@ public interface IFileUploadService
 public class FileUploadService : IFileUploadService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IMapper _mapper;
     private readonly ILogger<FileUploadService> _logger;
     private readonly IConfiguration _configuration;
     private readonly string _uploadPath;
 
     public FileUploadService(
         ApplicationDbContext context,
+        IMapper mapper,
         ILogger<FileUploadService> logger,
         IConfiguration configuration)
     {
         _context = context;
+        _mapper = mapper;
         _logger = logger;
         _configuration = configuration;
         
@@ -109,7 +115,7 @@ public class FileUploadService : IFileUploadService
             _logger.LogInformation("Document uploaded successfully: ID {DocumentId}, Size: {Size} bytes, Type: {ContentType}",
                 document.Id, uploadDto.FileSizeBytes, uploadDto.ContentType);
 
-            return MapToDto(document);
+            return _mapper.Map<DocumentDto>(document);
         }
         catch (Exception ex)
         {
@@ -130,7 +136,7 @@ public class FileUploadService : IFileUploadService
             return null;
         }
 
-        return MapToDto(document);
+        return _mapper.Map<DocumentDto>(document);
     }
 
     public async Task<List<DocumentDto>> GetAllDocumentsAsync(string userId)
@@ -142,7 +148,27 @@ public class FileUploadService : IFileUploadService
             .OrderByDescending(d => d.UploadedAt)
             .ToListAsync();
 
-        return documents.Select(MapToDto).ToList();
+        return _mapper.Map<List<DocumentDto>>(documents);
+    }
+
+    public async Task<DocumentDetailDto?> GetDocumentDetailAsync(int documentId, string userId)
+    {
+        var document = await _context.StudyDocuments
+            .Include(d => d.Test)
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.Test != null && d.Test.UserId == userId);
+
+        return document != null ? _mapper.Map<DocumentDetailDto>(document) : null;
+    }
+
+    public async Task<List<DocumentSummaryDto>> GetAllDocumentsSummaryAsync(string userId)
+    {
+        var documents = await _context.StudyDocuments
+            .Include(d => d.Test)
+            .Where(d => d.Test != null && d.Test.UserId == userId)
+            .OrderByDescending(d => d.UploadedAt)
+            .ToListAsync();
+
+        return _mapper.Map<List<DocumentSummaryDto>>(documents);
     }
 
     public async Task<bool> DeleteDocumentAsync(int documentId, string userId)
@@ -193,21 +219,4 @@ public class FileUploadService : IFileUploadService
         return true;
     }
 
-    private static DocumentDto MapToDto(StudyDocument document)
-    {
-        return new DocumentDto
-        {
-            Id = document.Id,
-            FileName = document.FileName,
-            StoredFileName = !string.IsNullOrEmpty(document.OriginalFilePath)
-                ? Path.GetFileName(document.OriginalFilePath)
-                : string.Empty,
-            ContentType = document.ContentType,
-            FileSizeBytes = document.FileSizeBytes,
-            UploadedAt = document.UploadedAt,
-            Status = document.Status,
-            ExtractedText = document.ExtractedText,
-            TestId = document.TestId
-        };
-    }
 }

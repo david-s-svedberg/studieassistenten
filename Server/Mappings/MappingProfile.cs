@@ -16,8 +16,40 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.StoredFileName,
                 opt => opt.MapFrom(src => Path.GetFileName(src.OriginalFilePath ?? string.Empty)));
 
+        CreateMap<StudyDocument, DocumentSummaryDto>()
+            .ForMember(dest => dest.StoredFileName,
+                opt => opt.MapFrom(src => Path.GetFileName(src.OriginalFilePath ?? string.Empty)));
+
+        CreateMap<StudyDocument, DocumentDetailDto>()
+            .ForMember(dest => dest.StoredFileName,
+                opt => opt.MapFrom(src => Path.GetFileName(src.OriginalFilePath ?? string.Empty)));
+
         // Test mappings
         CreateMap<Test, TestDto>()
+            .ForMember(dest => dest.DocumentCount,
+                opt => opt.MapFrom(src => src.Documents != null ? src.Documents.Count : 0))
+            .ForMember(dest => dest.TotalCharacters,
+                opt => opt.MapFrom(src => src.Documents != null
+                    ? src.Documents.Sum(d => d.ExtractedText != null ? d.ExtractedText.Length : 0)
+                    : 0))
+            .ForMember(dest => dest.HasGeneratedContent,
+                opt => opt.MapFrom(src => src.Documents != null &&
+                    src.Documents.Any(d => d.GeneratedContents != null && d.GeneratedContents.Any())))
+            .ForMember(dest => dest.Documents,
+                opt => opt.MapFrom(src => src.Documents ?? new List<StudyDocument>()));
+
+        CreateMap<Test, TestListDto>()
+            .ForMember(dest => dest.DocumentCount,
+                opt => opt.MapFrom(src => src.Documents != null ? src.Documents.Count : 0))
+            .ForMember(dest => dest.TotalCharacters,
+                opt => opt.MapFrom(src => src.Documents != null
+                    ? src.Documents.Sum(d => d.ExtractedText != null ? d.ExtractedText.Length : 0)
+                    : 0))
+            .ForMember(dest => dest.HasGeneratedContent,
+                opt => opt.MapFrom(src => src.Documents != null &&
+                    src.Documents.Any(d => d.GeneratedContents != null && d.GeneratedContents.Any())));
+
+        CreateMap<Test, TestDetailDto>()
             .ForMember(dest => dest.DocumentCount,
                 opt => opt.MapFrom(src => src.Documents != null ? src.Documents.Count : 0))
             .ForMember(dest => dest.TotalCharacters,

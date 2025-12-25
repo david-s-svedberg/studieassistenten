@@ -101,16 +101,16 @@ public class DocumentsController : BaseApiController
     }
 
     /// <summary>
-    /// Get all documents
+    /// Get all documents (lightweight list view without extracted text)
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<DocumentDto>>> GetAll()
+    public async Task<ActionResult<List<DocumentSummaryDto>>> GetAll()
     {
         try
         {
             var userId = GetCurrentUserId();
 
-            var documents = await _fileUploadService.GetAllDocumentsAsync(userId);
+            var documents = await _fileUploadService.GetAllDocumentsSummaryAsync(userId);
             return Ok(documents);
         }
         catch (Exception ex)
@@ -121,16 +121,16 @@ public class DocumentsController : BaseApiController
     }
 
     /// <summary>
-    /// Get a specific document
+    /// Get a specific document (detailed view with extracted text)
     /// </summary>
     [HttpGet("{id}")]
-    public async Task<ActionResult<DocumentDto>> GetById(int id)
+    public async Task<ActionResult<DocumentDetailDto>> GetById(int id)
     {
         try
         {
             var userId = GetCurrentUserId();
 
-            var document = await _fileUploadService.GetDocumentAsync(id, userId);
+            var document = await _fileUploadService.GetDocumentDetailAsync(id, userId);
             if (document == null)
             {
                 return NotFound();

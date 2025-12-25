@@ -51,16 +51,16 @@ public class TestsController : BaseApiController
     }
 
     /// <summary>
-    /// Get all tests
+    /// Get all tests (lightweight list view)
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<TestDto>>> GetAll()
+    public async Task<ActionResult<List<TestListDto>>> GetAll()
     {
         try
         {
             var userId = GetCurrentUserId();
 
-            var tests = await _testService.GetAllTestsAsync(userId);
+            var tests = await _testService.GetAllTestsListAsync(userId);
             return Ok(tests);
         }
         catch (Exception ex)
@@ -71,16 +71,16 @@ public class TestsController : BaseApiController
     }
 
     /// <summary>
-    /// Get a specific test
+    /// Get a specific test (detailed view with documents)
     /// </summary>
     [HttpGet("{id}")]
-    public async Task<ActionResult<TestDto>> GetById(int id)
+    public async Task<ActionResult<TestDetailDto>> GetById(int id)
     {
         try
         {
             var userId = GetCurrentUserId();
 
-            var test = await _testService.GetTestAsync(id, userId);
+            var test = await _testService.GetTestDetailAsync(id, userId);
             if (test == null)
             {
                 return NotFound($"Test with ID {id} not found");

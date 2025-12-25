@@ -1,3 +1,4 @@
+using AutoMapper;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Models;
@@ -9,7 +10,9 @@ public interface ITestService
 {
     Task<TestDto?> CreateTestAsync(CreateTestRequest request, string userId);
     Task<List<TestDto>> GetAllTestsAsync(string userId);
+    Task<List<TestListDto>> GetAllTestsListAsync(string userId);
     Task<TestDto?> GetTestAsync(int testId, string? userId = null);
+    Task<TestDetailDto?> GetTestDetailAsync(int testId, string userId);
     Task<bool> UpdateTestAsync(int testId, CreateTestRequest request, string userId);
     Task<bool> DeleteTestAsync(int testId, string userId);
 }
@@ -17,11 +20,16 @@ public interface ITestService
 public class TestService : ITestService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IMapper _mapper;
     private readonly ILogger<TestService> _logger;
 
-    public TestService(ApplicationDbContext context, ILogger<TestService> logger)
+    public TestService(
+        ApplicationDbContext context,
+        IMapper mapper,
+        ILogger<TestService> logger)
     {
         _context = context;
+        _mapper = mapper;
         _logger = logger;
     }
 
@@ -41,36 +49,57 @@ public class TestService : ITestService
 
         _logger.LogInformation("Test created: {TestName} (ID: {TestId}) for User: {UserId}", test.Name, test.Id, userId);
 
-        return MapToDto(test);
+        return _mapper.Map<TestDto>(test);
     }
 
     public async Task<List<TestDto>> GetAllTestsAsync(string userId)
     {
         var tests = await _context.Tests
             .Include(t => t.Documents)
-            .Include(t => t.GeneratedContents)
-            .Where(t => t.UserId == userId) // Filter by user
+            .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
-        return tests.Select(MapToDto).ToList();
+        return _mapper.Map<List<TestDto>>(tests);
+    }
+
+    public async Task<List<TestListDto>> GetAllTestsListAsync(string userId)
+    {
+        var tests = await _context.Tests
+            .Include(t => t.Documents)
+                .ThenInclude(d => d.GeneratedContents)
+            .Where(t => t.UserId == userId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+
+        return _mapper.Map<List<TestListDto>>(tests);
     }
 
     public async Task<TestDto?> GetTestAsync(int testId, string? userId = null)
     {
         var query = _context.Tests
             .Include(t => t.Documents)
-            .Include(t => t.GeneratedContents)
             .Where(t => t.Id == testId);
 
         if (!string.IsNullOrEmpty(userId))
         {
-            query = query.Where(t => t.UserId == userId); // Ownership check
+            query = query.Where(t => t.UserId == userId);
         }
 
         var test = await query.FirstOrDefaultAsync();
 
-        return test != null ? MapToDto(test) : null;
+        return test != null ? _mapper.Map<TestDto>(test) : null;
+    }
+
+    public async Task<TestDetailDto?> GetTestDetailAsync(int testId, string userId)
+    {
+        var test = await _context.Tests
+            .Include(t => t.Documents)
+                .ThenInclude(d => d.GeneratedContents)
+            .Where(t => t.Id == testId && t.UserId == userId)
+            .FirstOrDefaultAsync();
+
+        return test != null ? _mapper.Map<TestDetailDto>(test) : null;
     }
 
     public async Task<bool> UpdateTestAsync(int testId, CreateTestRequest request, string userId)
@@ -113,32 +142,5 @@ public class TestService : ITestService
         _logger.LogInformation("Test deleted: ID {TestId}", testId);
 
         return true;
-    }
-
-    private static TestDto MapToDto(Test test)
-    {
-        return new TestDto
-        {
-            Id = test.Id,
-            Name = test.Name,
-            Description = test.Description,
-            Instructions = test.Instructions,
-            UserId = test.UserId,
-            CreatedAt = test.CreatedAt,
-            UpdatedAt = test.UpdatedAt,
-            DocumentCount = test.Documents?.Count ?? 0,
-            TotalCharacters = test.Documents?.Sum(d => d.ExtractedText?.Length ?? 0) ?? 0,
-            HasGeneratedContent = test.GeneratedContents?.Any() ?? false,
-            Documents = test.Documents?.Select(d => new DocumentDto
-            {
-                Id = d.Id,
-                FileName = d.FileName,
-                FileSizeBytes = d.FileSizeBytes,
-                ExtractedText = d.ExtractedText ?? string.Empty,
-                Status = d.Status,
-                UploadedAt = d.UploadedAt,
-                TestId = d.TestId
-            }).ToList() ?? new List<DocumentDto>()
-        };
     }
 }
