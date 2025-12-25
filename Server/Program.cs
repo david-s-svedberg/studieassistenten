@@ -209,6 +209,41 @@ app.UseRouting();
 
 app.UseCors("AllowBlazorClient");
 
+// Security headers middleware
+app.Use(async (context, next) =>
+{
+    // Content Security Policy - Prevents XSS attacks
+    // Adjusted for Blazor WebAssembly requirements
+    context.Response.Headers.Append("Content-Security-Policy",
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; " +  // Required for Blazor WASM
+        "style-src 'self' 'unsafe-inline'; " +                     // Required for Blazor inline styles
+        "img-src 'self' data: https:; " +
+        "font-src 'self'; " +
+        "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; " +  // Google OAuth
+        "frame-src 'self' https://accounts.google.com; " +        // Google OAuth iframe
+        "object-src 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'; " +
+        "frame-ancestors 'none'; " +
+        "upgrade-insecure-requests;");
+
+    // X-Content-Type-Options - Prevents MIME-sniffing
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+
+    // X-Frame-Options - Prevents clickjacking
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+
+    // Referrer-Policy - Controls referrer information
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+
+    // Permissions-Policy - Restricts browser features
+    context.Response.Headers.Append("Permissions-Policy",
+        "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()");
+
+    await next();
+});
+
 // Authentication & Authorization (ORDER MATTERS)
 app.UseAuthentication();
 app.UseAuthorization();
