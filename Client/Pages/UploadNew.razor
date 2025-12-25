@@ -252,20 +252,21 @@
     private int? currentTestId;
     private TestDto? currentTest;
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync()
     {
-        if (Mode != "new" && int.TryParse(Mode, out var testId))
+        // Redirect to new upload location
+        if (Mode == "new")
         {
-            currentTestId = testId;
-            currentTest = await TestService.GetTestAsync(testId);
-
-            // Only load documents if the list is empty (initial load)
-            // Don't replace the list after uploads as it would lose newly uploaded files
-            if (currentTest?.Documents != null && !uploadedDocuments.Any())
-            {
-                uploadedDocuments = currentTest.Documents.ToList();
-            }
+            // Redirect to home page - user can click "New Test" there
+            Navigation.NavigateTo("/", true);
         }
+        else if (int.TryParse(Mode, out var testId))
+        {
+            // Redirect to test detail page - upload is now integrated there
+            Navigation.NavigateTo($"/test/{testId}", true);
+        }
+
+        return Task.CompletedTask;
     }
 
     private void HandleFileSelected(InputFileChangeEventArgs e)

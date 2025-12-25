@@ -257,9 +257,31 @@
         await LoadTests();
     }
 
-    private void CreateNewTest()
+    private async Task CreateNewTest()
     {
-        Navigation.NavigateTo("/upload/new");
+        try
+        {
+            // Create test immediately with date-based name
+            var newTest = await TestService.CreateTestAsync(new CreateTestRequest
+            {
+                Name = $"Test - {DateTime.Now:yyyy-MM-dd HH:mm}",
+                Description = "",
+                Instructions = ""
+            });
+
+            if (newTest != null)
+            {
+                // Refresh sidebar to show new test
+                await LoadTests();
+
+                // Navigate to the new test page
+                Navigation.NavigateTo($"/test/{newTest.Id}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Error] Failed to create test: {ex.Message}");
+        }
     }
 
     private void NavigateToTest(int testId)

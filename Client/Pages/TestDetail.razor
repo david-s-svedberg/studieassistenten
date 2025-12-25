@@ -61,47 +61,7 @@ else
             }
         </div>
 
-        <div class="test-actions mb-4">
-            <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo($"/upload/{TestId}")'>
-                <i class="bi bi-upload"></i> Upload Documents
-            </button>
-
-            @if (test.DocumentCount > 0)
-            {
-                <button class="btn btn-success" @onclick="GenerateFlashcards" disabled="@isGenerating">
-                    @if (isGenerating && generatingType == ProcessingType.Flashcards)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                    }
-                    <i class="bi bi-card-list"></i> Generate Flashcards
-                </button>
-                <button class="btn btn-info" @onclick="GeneratePracticeTest" disabled="@isGenerating">
-                    @if (isGenerating && generatingType == ProcessingType.PracticeTest)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                    }
-                    <i class="bi bi-file-text"></i> Generate Practice Test
-                </button>
-                <button class="btn btn-warning" @onclick="GenerateSummary" disabled="@isGenerating">
-                    @if (isGenerating && generatingType == ProcessingType.Summary)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                    }
-                    <i class="bi bi-file-earmark-text"></i> Generate Summary
-                </button>
-            }
-        </div>
-
-        @if (isGenerating)
-        {
-            <div class="alert alert-info">
-                <div class="d-flex align-items-center">
-                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                    <span>Generating @generatingType with AI... This may take a moment.</span>
-                </div>
-            </div>
-        }
-
+        @* 2. GENERATED CONTENT SECTION *@
         @if (generatedContents.Any())
         {
             <div class="generated-content-section mb-4">
@@ -119,26 +79,68 @@ else
                                     @content.ProcessingType • @content.GeneratedAt.ToString("yyyy-MM-dd HH:mm")
                                 </div>
                             </div>
-                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenPdf(content.Id)">
+                            <a href="@ContentService.GetPdfUrl(content.Id)" target="_blank" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-download"></i> PDF
-                            </button>
+                            </a>
                         </div>
                     }
                 </div>
             </div>
         }
 
-        @if (test.DocumentCount == 0)
+        @* 3. GENERATION BUTTONS (only if documents with OCR completed exist) *@
+        @if (test.DocumentCount > 0 && documents.Any(d => d.Status == DocumentStatus.OcrCompleted || !string.IsNullOrWhiteSpace(d.ExtractedText)))
         {
-            <div class="alert alert-secondary">
-                <h5>No documents yet</h5>
-                <p>Upload your first document to get started with this test.</p>
+            @if (isGenerating)
+            {
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        <span>Generating @generatingType with AI... This may take a moment.</span>
+                    </div>
+                </div>
+            }
+
+            <div class="test-actions mb-4">
+                @if (generatedContents.Any())
+                {
+                    <h4>Generate More Content</h4>
+                }
+                else
+                {
+                    <h4>Generate Content</h4>
+                }
+                <div class="generation-buttons">
+                    <button class="btn btn-success" @onclick="GenerateFlashcards" disabled="@isGenerating">
+                        @if (isGenerating && generatingType == ProcessingType.Flashcards)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-card-list"></i> Generate Flashcards
+                    </button>
+                    <button class="btn btn-info" @onclick="GeneratePracticeTest" disabled="@isGenerating">
+                        @if (isGenerating && generatingType == ProcessingType.PracticeTest)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-file-text"></i> Generate Practice Test
+                    </button>
+                    <button class="btn btn-warning" @onclick="GenerateSummary" disabled="@isGenerating">
+                        @if (isGenerating && generatingType == ProcessingType.Summary)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-file-earmark-text"></i> Generate Summary
+                    </button>
+                </div>
             </div>
         }
-        else
+
+        @* 4. UPLOADED DOCUMENTS SECTION *@
+        @if (test.Documents != null && test.Documents.Any())
         {
-            <div class="documents-section">
-                <h3 class="mb-3">Documents (@test.DocumentCount)</h3>
+            <div class="documents-section mb-2">
+                <h3 class="mb-3">Uploaded Documents (@test.DocumentCount)</h3>
                 <div class="document-grid">
                     @foreach (var doc in documents)
                     {
@@ -157,6 +159,89 @@ else
                 </div>
             </div>
         }
+        else
+        {
+            <div class="no-documents-message mb-2">
+                <i class="bi bi-inbox" style="font-size: 2rem; color: #8e8ea0;"></i>
+                <p class="text-muted mt-2 mb-0">No documents uploaded yet. Upload your first document below!</p>
+            </div>
+        }
+
+        @* Upload Component - Always visible at bottom *@
+        <div class="upload-section mt-3">
+            <h3>Upload Documents</h3>
+
+            @if (isUploading)
+            {
+                <div class="upload-area">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-light mb-3" role="status"></div>
+                        <div>
+                            <p class="text-light mb-2">@uploadStatus</p>
+                            @if (isProcessingOcr)
+                            {
+                                <small class="text-muted">Processing with OCR...</small>
+                            }
+                            @if (namingInProgress)
+                            {
+                                <small class="text-muted d-block mt-2">
+                                    Generating test name<span class="loading-dots"></span>
+                                </small>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="upload-area">
+                    <div class="file-input-wrapper">
+                        <InputFile id="fileInput"
+                                  OnChange="@HandleFileSelected"
+                                  class="file-input"
+                                  accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
+                                  capture="environment"
+                                  multiple />
+                        <label for="fileInput" class="file-input-label">
+                            <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
+                            <div class="mt-3">
+                                <strong>Click to upload</strong> or drag and drop
+                            </div>
+                            <div class="text-muted mt-2">
+                                PDF, Images, Text files (Max 60MB each)
+                            </div>
+                        </label>
+                    </div>
+
+                    @if (selectedFiles.Any())
+                    {
+                        <div class="selected-files mt-4">
+                            <h5>Selected Files (@selectedFiles.Count)</h5>
+                            <div class="file-list">
+                                @foreach (var file in selectedFiles)
+                                {
+                                    <div class="file-item">
+                                        <i class="bi bi-file-earmark"></i>
+                                        <span class="file-name">@file.Name</span>
+                                        <span class="file-size">@FormatFileSize(file.Size)</span>
+                                        <button class="btn-remove" @onclick="() => RemoveFile(file)">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(uploadErrorMessage))
+                    {
+                        <div class="alert alert-danger mt-3">
+                            <i class="bi bi-exclamation-triangle"></i> @uploadErrorMessage
+                        </div>
+                    }
+                </div>
+            }
+        </div>
     </div>
 }
 
@@ -172,10 +257,23 @@ else
         margin-bottom: 0.5rem;
     }
 
-    .test-actions {
+    .test-actions h4 {
+        color: #ececf1;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .generation-buttons {
         display: flex;
         gap: 0.75rem;
         flex-wrap: wrap;
+    }
+
+    .no-documents-message {
+        text-align: center;
+        padding: 1rem 2rem;
+        background: #343541;
+        border-radius: 1rem;
     }
 
     .documents-section h3,
@@ -244,6 +342,106 @@ else
         color: #8e8ea0;
         margin-top: 0.25rem;
     }
+
+    /* Upload component styles */
+    .upload-section {
+        background: #2a2b32;
+        border-radius: 1rem;
+        padding: 1.5rem;
+    }
+
+    .upload-section h3 {
+        color: #ececf1;
+        margin-bottom: 1rem;
+    }
+
+    .upload-area {
+        background: #444654;
+        border: 2px dashed #565869;
+        border-radius: 1rem;
+        padding: 2rem;
+        min-height: 200px;
+    }
+
+    .file-input-wrapper {
+        position: relative;
+    }
+
+    .file-input {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .file-input-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #8e8ea0;
+    }
+
+    .file-input-label:hover {
+        color: #ececf1;
+    }
+
+    .selected-files {
+        background: #343541;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .selected-files h5 {
+        color: #ececf1;
+        margin-bottom: 1rem;
+    }
+
+    .file-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .file-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: #444654;
+        border-radius: 0.5rem;
+        color: #ececf1;
+    }
+
+    .btn-remove {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        padding: 0.25rem;
+        font-size: 1.25rem;
+    }
+
+    .btn-remove:hover {
+        color: #dc2626;
+    }
+
+    /* Animated loading dots */
+    .loading-dots::after {
+        content: '';
+        animation: dots 1.5s steps(4, end) infinite;
+    }
+
+    @@keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        80%, 100% { content: '...'; }
+    }
 </style>
 
 @code {
@@ -258,6 +456,19 @@ else
     private ProcessingType? generatingType = null;
     private bool isEditingName = false;
     private string editedName = "";
+
+    // Upload state
+    private List<IBrowserFile> selectedFiles = new();
+    private bool isUploading = false;
+    private bool isProcessingOcr = false;
+    private string uploadStatus = "";
+    private string? uploadErrorMessage;
+
+    // Smart naming state
+    private bool hasAttemptedNaming = false;
+    private bool namingSucceeded = false;
+    private bool namingInProgress = false;
+    private string? lastFailedNamingReason;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -383,11 +594,6 @@ else
         }
     }
 
-    private async Task OpenPdf(int contentId)
-    {
-        await JS.InvokeVoidAsync("open", ContentService.GetPdfUrl(contentId), "_blank");
-    }
-
     private void ViewDocument(int documentId)
     {
         Navigation.NavigateTo($"/document/{documentId}");
@@ -417,5 +623,236 @@ else
         if (bytes < 1024) return $"{bytes} B";
         if (bytes < 1024 * 1024) return $"{bytes / 1024} KB";
         return $"{bytes / (1024 * 1024)} MB";
+    }
+
+    // Upload methods
+    private async void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFiles.Clear();
+        foreach (var file in e.GetMultipleFiles(10)) // Max 10 files
+        {
+            selectedFiles.Add(file);
+        }
+        uploadErrorMessage = null;
+        StateHasChanged();
+
+        // AUTO-UPLOAD: Trigger upload immediately
+        if (selectedFiles.Any())
+        {
+            await UploadFiles();
+        }
+    }
+
+    private void RemoveFile(IBrowserFile file)
+    {
+        selectedFiles.Remove(file);
+    }
+
+    private async Task UploadFiles()
+    {
+        if (!selectedFiles.Any() || test == null) return;
+
+        // CRITICAL: Read all files into memory FIRST
+        const long maxFileSize = 60 * 1024 * 1024; // 60 MB
+        var fileData = new List<(MemoryStream stream, string name, string contentType, long size)>();
+
+        try
+        {
+            // Read files while InputFile still in DOM
+            foreach (var file in selectedFiles)
+            {
+                using var browserStream = file.OpenReadStream(maxFileSize);
+                var memoryStream = new MemoryStream();
+                await browserStream.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+
+                fileData.Add((memoryStream, file.Name, file.ContentType, file.Size));
+            }
+
+            // NOW set isUploading (which hides InputFile)
+            isUploading = true;
+            StateHasChanged();
+            uploadErrorMessage = null;
+
+            // Upload each file
+            for (int i = 0; i < fileData.Count; i++)
+            {
+                var (stream, name, contentType, size) = fileData[i];
+                uploadStatus = $"Uploading {i + 1} of {fileData.Count}: {name}";
+                StateHasChanged();
+
+                using (stream)
+                {
+                    var uploadedDoc = await DocumentService.UploadDocumentAsync(
+                        stream, name, contentType, size, test.Id);
+
+                    if (uploadedDoc != null)
+                    {
+                        // Auto-trigger OCR if needed
+                        if (uploadedDoc.Status == DocumentStatus.Uploaded &&
+                            (uploadedDoc.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
+                             uploadedDoc.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                             uploadedDoc.FileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                             uploadedDoc.FileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            isProcessingOcr = true;
+                            uploadStatus = $"Processing OCR for {name}...";
+                            StateHasChanged();
+
+                            await DocumentService.TriggerOcrProcessingAsync(uploadedDoc.Id);
+                            await Task.Delay(2000);
+                        }
+                    }
+                }
+            }
+
+            selectedFiles.Clear();
+            isProcessingOcr = false;
+
+            // Reload test to get new documents
+            await LoadTest();
+            StateHasChanged();
+
+            // SMART NAMING: Only attempt if not already done successfully
+            await AttemptSmartNaming();
+        }
+        catch (Exception ex)
+        {
+            uploadErrorMessage = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    // Smart test naming methods
+    private async Task AttemptSmartNaming()
+    {
+        if (test == null) return;
+
+        // Check if we should attempt naming
+        bool shouldAttempt = !hasAttemptedNaming || // Never tried
+                             (hasAttemptedNaming && !namingSucceeded); // Tried but failed
+
+        if (!shouldAttempt)
+        {
+            Console.WriteLine("[Smart Naming] Skipping - already successfully named");
+            return;
+        }
+
+        // Don't regenerate if user manually changed the name
+        if (IsManuallyNamed())
+        {
+            Console.WriteLine("[Smart Naming] Skipping - test name appears manually set");
+            hasAttemptedNaming = true;
+            namingSucceeded = true; // Treat as success to prevent future attempts
+            return;
+        }
+
+        try
+        {
+            hasAttemptedNaming = true;
+            namingInProgress = true;
+            uploadStatus = "Generating test name...";
+            StateHasChanged();
+
+            // Wait for OCR to complete
+            bool ocrComplete = await WaitForOcrCompletion();
+
+            if (ocrComplete)
+            {
+                var suggestedName = await TestService.SuggestTestNameAsync(test.Id);
+
+                if (!string.IsNullOrWhiteSpace(suggestedName) &&
+                    !suggestedName.StartsWith("Test - ") &&
+                    !suggestedName.StartsWith("New Test - "))
+                {
+                    // Reload test to get updated name
+                    await LoadTest();
+                    namingSucceeded = true;
+                    lastFailedNamingReason = null;
+                    uploadStatus = $"Test renamed to: {suggestedName}";
+                    Console.WriteLine($"[Smart Naming] Success: {suggestedName}");
+                }
+                else
+                {
+                    namingSucceeded = false;
+                    lastFailedNamingReason = "AI could not generate a suitable name";
+                    ShowToast("Could not auto-generate test name. You can edit it manually.", "warning");
+                    Console.WriteLine("[Smart Naming] Failed - no AI-generated name received");
+                }
+            }
+            else
+            {
+                namingSucceeded = false;
+                lastFailedNamingReason = "OCR timeout";
+                ShowToast("OCR is taking longer than expected. Test name not generated.", "warning");
+                Console.WriteLine("[Smart Naming] Failed - OCR timeout");
+            }
+        }
+        catch (Exception ex)
+        {
+            namingSucceeded = false;
+            lastFailedNamingReason = ex.Message;
+            ShowToast($"Error generating test name: {ex.Message}", "error");
+            Console.WriteLine($"[Smart Naming] Error: {ex.Message}");
+        }
+        finally
+        {
+            namingInProgress = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool IsManuallyNamed()
+    {
+        if (test == null || string.IsNullOrEmpty(test.Name)) return false;
+
+        // Check if name is still the default date-based format
+        return !test.Name.StartsWith("Test - ") &&
+               !test.Name.StartsWith("New Test - ");
+    }
+
+    private async Task<bool> WaitForOcrCompletion()
+    {
+        if (test == null) return false;
+
+        int maxAttempts = 30; // 30 seconds max
+        int attempts = 0;
+
+        while (attempts < maxAttempts)
+        {
+            await Task.Delay(1000);
+            attempts++;
+
+            var updatedTest = await TestService.GetTestAsync(test.Id);
+            if (updatedTest?.Documents != null)
+            {
+                var completedDocs = updatedTest.Documents.Count(d =>
+                    d.Status == DocumentStatus.OcrCompleted ||
+                    !string.IsNullOrWhiteSpace(d.ExtractedText));
+
+                Console.WriteLine($"[OCR Check {attempts}] {completedDocs}/{updatedTest.Documents.Count} ready");
+
+                if (completedDocs > 0)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void ShowToast(string message, string type)
+    {
+        // TODO: Implement toast notification
+        // For now, just log to console
+        Console.WriteLine($"[Toast {type}] {message}");
+
+        // Can use JSInterop for browser notifications or integrate a toast library
+        // await JS.InvokeVoidAsync("showToast", message, type);
     }
 }
