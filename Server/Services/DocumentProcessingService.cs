@@ -8,6 +8,7 @@ using Docnet.Core;
 using Docnet.Core.Models;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace StudieAssistenten.Server.Services;
 
@@ -220,19 +221,61 @@ public class DocumentProcessingService : IDocumentProcessingService
 
     private async Task<string> ProcessImageAsync(string filePath)
     {
+        var tempImagePath = Path.Combine(Path.GetTempPath(), $"preprocessed_{Guid.NewGuid()}.png");
+
         try
         {
             _logger.LogInformation("Performing OCR on image: {FilePath}", filePath);
 
-            // Use OCR service to extract text from image
-            var text = await _ocrService.ExtractTextFromImageAsync(filePath, "swe");
-            
+            // Preprocess image for better OCR
+            using (var stream = await _fileStorage.ReadAsync(filePath))
+            using (var image = await SixLabors.ImageSharp.Image.LoadAsync(stream))
+            {
+                // Convert to grayscale for better OCR
+                image.Mutate(x => x.Grayscale());
+
+                // Increase contrast
+                image.Mutate(x => x.Contrast(1.5f));
+
+                // Resize if too large (OCR works better on reasonable sizes)
+                if (image.Width > 3000 || image.Height > 3000)
+                {
+                    var scale = Math.Min(3000.0 / image.Width, 3000.0 / image.Height);
+                    var newWidth = (int)(image.Width * scale);
+                    var newHeight = (int)(image.Height * scale);
+                    image.Mutate(x => x.Resize(newWidth, newHeight));
+                }
+
+                // Save preprocessed image
+                await image.SaveAsPngAsync(tempImagePath);
+            }
+
+            // Use OCR service to extract text from preprocessed image
+            var text = await _ocrService.ExtractTextFromImageAsync(tempImagePath, "swe");
+
+            _logger.LogInformation("OCR extracted {Length} characters from image", text.Length);
+
             return text;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error performing OCR on image: {FilePath}", filePath);
             throw;
+        }
+        finally
+        {
+            // Clean up temp file
+            if (File.Exists(tempImagePath))
+            {
+                try
+                {
+                    File.Delete(tempImagePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete temp file: {TempPath}", tempImagePath);
+                }
+            }
         }
     }
 }

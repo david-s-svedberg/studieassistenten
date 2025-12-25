@@ -54,8 +54,13 @@ else
                         <div class="preview-header">
                             <h5>Image Preview</h5>
                         </div>
-                        <div class="preview-body">
-                            <img src="/uploads/@document.StoredFileName" alt="@document.FileName" class="img-fluid" style="max-height: 500px; object-fit: contain;" />
+                        <div class="preview-body" style="flex-direction: column;">
+                            <img src="/api/documents/@DocumentId/view"
+                                 alt="@document.FileName"
+                                 class="document-image-preview"
+                                 @onclick="() => showImageModal = true"
+                                 style="max-height: 500px; object-fit: contain; cursor: pointer;" />
+                            <p class="text-muted mt-2 small" style="margin-bottom: 0;">Click image to view full size</p>
                         </div>
                     </div>
                 </div>
@@ -77,12 +82,13 @@ else
                 </div>
             }
 
-            @* Extracted Text Section *@
+            @* Document Content Section *@
             <div class="text-section">
                 <div class="text-card">
                     <div class="text-header">
-                        <h5>Extracted Text</h5>
-                        @if (document.Status == DocumentStatus.Uploaded)
+                        <h5>Document Content</h5>
+                        @* Only show Extract Text button for non-text files *@
+                        @if (document.Status == DocumentStatus.Uploaded && !IsTextFile(document.FileName))
                         {
                             <button class="btn btn-sm btn-primary" @onclick="ProcessDocument" disabled="@isProcessing">
                                 @if (isProcessing)
@@ -144,6 +150,19 @@ else
             </div>
         </div>
     </div>
+
+    @* Image Modal for Full Screen View *@
+    @if (showImageModal && IsImageFile(document?.FileName ?? ""))
+    {
+        <div class="image-modal" @onclick="() => showImageModal = false">
+            <div class="image-modal-content" @onclick:stopPropagation="true">
+                <button class="image-modal-close" @onclick="() => showImageModal = false">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+                <img src="/api/documents/@DocumentId/view" alt="@document?.FileName" class="modal-image" />
+            </div>
+        </div>
+    }
 }
 
 <style>
@@ -278,6 +297,75 @@ else
             grid-template-columns: 1fr;
         }
     }
+
+    /* Image Preview Styles */
+    .document-image-preview {
+        max-width: 100%;
+        max-height: 600px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .document-image-preview:hover {
+        transform: scale(1.02);
+    }
+
+    /* Image Modal Styles */
+    .image-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        padding: 20px;
+    }
+
+    .image-modal-content {
+        position: relative;
+        max-width: 95vw;
+        max-height: 95vh;
+    }
+
+    .modal-image {
+        max-width: 100%;
+        max-height: 95vh;
+        object-fit: contain;
+    }
+
+    .image-modal-close {
+        position: absolute;
+        top: -40px;
+        right: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        font-size: 24px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+
+    .image-modal-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    @@media (max-width: 768px) {
+        .image-modal-close {
+            top: 10px;
+            right: 10px;
+        }
+    }
 </style>
 
 @code {
@@ -290,6 +378,7 @@ else
     private bool isEditing = false;
     private bool isSaving = false;
     private string editedText = string.Empty;
+    private bool showImageModal = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -386,6 +475,13 @@ else
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".bmp";
+    }
+
+    private bool IsTextFile(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName)) return false;
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext == ".txt";
     }
 
     private bool IsPdfFile(string fileName)
