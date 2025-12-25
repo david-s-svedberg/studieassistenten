@@ -250,14 +250,14 @@ app.Use(async (context, next) =>
         "object-src 'none'; " +
         "base-uri 'self'; " +
         "form-action 'self'; " +
-        "frame-ancestors 'none'; " +
+        "frame-ancestors 'self'; " +                               // Allow same-origin iframes (for document viewer)
         "upgrade-insecure-requests;");
 
     // X-Content-Type-Options - Prevents MIME-sniffing
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
 
-    // X-Frame-Options - Prevents clickjacking
-    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    // X-Frame-Options - Prevents clickjacking (allow same-origin for document viewer)
+    context.Response.Headers.Append("X-Frame-Options", "SAMEORIGIN");
 
     // Referrer-Policy - Controls referrer information
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
