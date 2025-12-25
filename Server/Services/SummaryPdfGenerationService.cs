@@ -13,14 +13,32 @@ public interface ISummaryPdfGenerationService
 
 public class SummaryPdfGenerationService : BasePdfGenerationService, ISummaryPdfGenerationService
 {
+    private string? _documentTitle;
+
     public byte[] GenerateSummaryPdf(GeneratedContent content)
     {
+        // Get test name from content.Test (generated content now belongs to test)
+        _documentTitle = content.Test?.Name ?? content.StudyDocument?.Test?.Name ?? content.Title ?? "Sammanfattning";
         return GeneratePdf(container => ComposeContent(container, content));
     }
 
     protected override string GetDocumentTitle()
     {
-        return "Sammanfattning";
+        return _documentTitle ?? "Sammanfattning";
+    }
+
+    protected override void ComposeHeader(IContainer container)
+    {
+        // Override to remove the placeholder image and add padding
+        container.PaddingBottom(15).Row(row =>
+        {
+            row.RelativeItem().Column(column =>
+            {
+                column.Item().Text(GetDocumentTitle()).FontSize(20).Bold().FontColor(Colors.Blue.Medium);
+                column.Item().Text($"Genererad: {DateTime.Now:yyyy-MM-dd HH:mm}").FontSize(9).FontColor(Colors.Grey.Medium);
+            });
+            // Removed: row.ConstantItem(100).Height(50).Placeholder();
+        });
     }
 
     protected override void ConfigurePage(PageDescriptor page)
@@ -57,8 +75,13 @@ public class SummaryPdfGenerationService : BasePdfGenerationService, ISummaryPdf
                         continue;
                     }
 
-                    // Headers (## or #)
-                    if (trimmedLine.StartsWith("## "))
+                    // Headers (###, ##, or #)
+                    if (trimmedLine.StartsWith("### "))
+                    {
+                        column.Item().PaddingTop(8).Text(trimmedLine.Replace("### ", ""))
+                            .FontSize(13).Bold().FontColor(Colors.Blue.Darken1);
+                    }
+                    else if (trimmedLine.StartsWith("## "))
                     {
                         column.Item().PaddingTop(10).Text(trimmedLine.Replace("## ", ""))
                             .FontSize(14).Bold().FontColor(Colors.Blue.Darken1);

@@ -13,31 +13,45 @@ public interface IFlashcardPdfGenerationService
 
 public class FlashcardPdfGenerationService : BasePdfGenerationService, IFlashcardPdfGenerationService
 {
+    private string? _documentTitle;
+
     public byte[] GenerateFlashcardPdf(GeneratedContent content)
     {
+        // Get test name from content.Test (generated content now belongs to test)
+        _documentTitle = content.Test?.Name ?? content.StudyDocument?.Test?.Name ?? content.Title ?? "Flashcards";
         return GeneratePdf(container => ComposeContent(container, content));
     }
 
     protected override string GetDocumentTitle()
     {
-        return "Flashcards";
+        return _documentTitle ?? "Flashcards";
+    }
+
+    protected override void ComposeHeader(IContainer container)
+    {
+        // Override to remove the placeholder image and add padding
+        container.PaddingBottom(15).Row(row =>
+        {
+            row.RelativeItem().Column(column =>
+            {
+                column.Item().Text(GetDocumentTitle()).FontSize(20).Bold().FontColor(Colors.Blue.Medium);
+                column.Item().Text($"Genererad: {DateTime.Now:yyyy-MM-dd HH:mm}").FontSize(9).FontColor(Colors.Grey.Medium);
+            });
+            // Removed: row.ConstantItem(100).Height(50).Placeholder();
+        });
     }
 
     void ComposeContent(IContainer container, GeneratedContent content)
     {
         container.Column(column =>
         {
-            column.Spacing(10);
-
-            // Title
-            column.Item().Text(content.Title ?? "Flashcards").FontSize(16).Bold();
-
-            // Flashcards
+            // Flashcards in 2-column layout (question | answer)
             if (content.Flashcards != null && content.Flashcards.Any())
             {
                 foreach (var flashcard in content.Flashcards.OrderBy(f => f.Order))
                 {
-                    column.Item().Element(container => ComposeFlashcard(container, flashcard));
+                    column.Item().EnsureSpace().Element(container => ComposeFlashcard(container, flashcard));
+                    column.Spacing(4); // Small spacing between flashcard rows
                 }
             }
         });
@@ -45,19 +59,32 @@ public class FlashcardPdfGenerationService : BasePdfGenerationService, IFlashcar
 
     void ComposeFlashcard(IContainer container, Flashcard flashcard)
     {
-        container.Border(1).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(column =>
+        const int verticalPadding = 20;
+
+        container.Row(row =>
         {
-            column.Spacing(5);
+            // Question (left column)
+            row.RelativeItem()
+                .Border(2)
+                .BorderColor(Colors.Black)
+                .PaddingVertical(verticalPadding)
+                .PaddingHorizontal(10)
+                .AlignCenter()
+                .AlignMiddle()
+                .Text(flashcard.Question);
 
-            // Question
-            column.Item().Row(row =>
-            {
-                row.ConstantItem(30).Text($"{flashcard.Order}.").Bold();
-                row.RelativeItem().Text(flashcard.Question).Bold();
-            });
+            // Small gap between columns
+            row.ConstantItem(4);
 
-            // Answer
-            column.Item().PaddingLeft(30).Text(flashcard.Answer);
+            // Answer (right column)
+            row.RelativeItem()
+                .Border(2)
+                .BorderColor(Colors.Black)
+                .PaddingVertical(verticalPadding)
+                .PaddingHorizontal(10)
+                .AlignCenter()
+                .AlignMiddle()
+                .Text(flashcard.Answer);
         });
     }
 }

@@ -53,27 +53,32 @@ public class ContentGenerationController : BaseApiController
                 return Unauthorized();
             }
 
-            // Get document and verify ownership via Test relationship
-            var document = await _context.StudyDocuments
-                .Include(d => d.Test)
-                .FirstOrDefaultAsync(d => d.Id == request.DocumentId);
+            // Get test and verify ownership
+            var test = await _context.Tests
+                .Include(t => t.Documents)
+                .FirstOrDefaultAsync(t => t.Id == request.TestId);
 
-            if (document == null || document.Test == null || document.Test.UserId != userId)
+            if (test == null || test.UserId != userId)
             {
-                return NotFound(new { message = "Document not found" });
+                return NotFound(new { message = "Test not found" });
             }
 
-            if (string.IsNullOrWhiteSpace(document.ExtractedText))
+            if (!test.Documents.Any())
             {
-                return BadRequest(new { message = "Document has no extracted text. Please run OCR first." });
+                return BadRequest(new { message = "Test has no documents. Please upload documents first." });
             }
 
-            // Generate content based on type
+            if (!test.Documents.Any(d => !string.IsNullOrWhiteSpace(d.ExtractedText)))
+            {
+                return BadRequest(new { message = "No documents have extracted text. Please wait for OCR processing to complete." });
+            }
+
+            // Generate content based on type (using all documents in the test)
             var generatedContent = request.ProcessingType switch
             {
-                ProcessingType.Flashcards => await _aiService.GenerateFlashcardsAsync(request.DocumentId, request.TeacherInstructions),
-                ProcessingType.PracticeTest => await _aiService.GeneratePracticeTestAsync(request.DocumentId, request.TeacherInstructions),
-                ProcessingType.Summary => await _aiService.GenerateSummaryAsync(request.DocumentId, request.TeacherInstructions),
+                ProcessingType.Flashcards => await _aiService.GenerateFlashcardsAsync(request.TestId, request.TeacherInstructions),
+                ProcessingType.PracticeTest => await _aiService.GeneratePracticeTestAsync(request.TestId, request.TeacherInstructions),
+                ProcessingType.Summary => await _aiService.GenerateSummaryAsync(request.TestId, request.TeacherInstructions),
                 _ => throw new InvalidOperationException($"Unsupported processing type: {request.ProcessingType}")
             };
 
@@ -86,7 +91,7 @@ public class ContentGenerationController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating content for document {DocumentId}", request.DocumentId);
+            _logger.LogError(ex, "Error generating content for test {TestId}", request.TestId);
             return StatusCode(500, new { message = "An error occurred while generating content" });
         }
     }
@@ -136,21 +141,10 @@ public class ContentGenerationController : BaseApiController
             return NotFound();
         }
 
-        // Get all documents for this test
-        var documentIds = await _context.StudyDocuments
-            .Where(d => d.TestId == testId)
-            .Select(d => d.Id)
-            .ToListAsync();
-
-        if (!documentIds.Any())
-        {
-            return Ok(new List<object>());
-        }
-
-        // Get all generated content for those documents
+        // Get all generated content for this test
         var contents = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
-            .Where(gc => documentIds.Contains(gc.StudyDocumentId))
+            .Where(gc => gc.TestId == testId)
             .OrderByDescending(gc => gc.GeneratedAt)
             .ToListAsync();
 
@@ -167,14 +161,15 @@ public class ContentGenerationController : BaseApiController
             return Unauthorized();
         }
 
-        // Get content and verify ownership via Document -> Test relationship
+        // Get content and verify ownership via Test relationship
         var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
-            .Include(gc => gc.StudyDocument)
+            .Include(gc => gc.Test)
+            .Include(gc => gc.StudyDocument) // Legacy: for backward compatibility
                 .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null || content.StudyDocument?.Test?.UserId != userId)
+        if (content == null || content.Test?.UserId != userId)
         {
             return NotFound();
         }
@@ -191,14 +186,15 @@ public class ContentGenerationController : BaseApiController
             return Unauthorized();
         }
 
-        // Get content and verify ownership via Document -> Test relationship
+        // Get content and verify ownership via Test relationship
         var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
-            .Include(gc => gc.StudyDocument)
+            .Include(gc => gc.Test)
+            .Include(gc => gc.StudyDocument) // Legacy: for backward compatibility
                 .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null || content.StudyDocument?.Test?.UserId != userId)
+        if (content == null || content.Test?.UserId != userId)
         {
             return NotFound();
         }
@@ -221,14 +217,15 @@ public class ContentGenerationController : BaseApiController
             return Unauthorized();
         }
 
-        // Get content and verify ownership via Document -> Test relationship
+        // Get content and verify ownership via Test relationship
         var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
-            .Include(gc => gc.StudyDocument)
+            .Include(gc => gc.Test)
+            .Include(gc => gc.StudyDocument) // Legacy: for backward compatibility
                 .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null || content.StudyDocument?.Test?.UserId != userId)
+        if (content == null || content.Test?.UserId != userId)
         {
             return NotFound();
         }

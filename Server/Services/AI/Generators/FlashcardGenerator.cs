@@ -1,4 +1,5 @@
 using Anthropic.SDK.Messaging;
+using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
@@ -8,7 +9,7 @@ namespace StudieAssistenten.Server.Services.AI.Generators;
 
 public interface IFlashcardGenerator
 {
-    Task<GeneratedContent> GenerateAsync(int documentId, string? teacherInstructions = null);
+    Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null);
 }
 
 public class FlashcardGenerator : BaseContentGenerator, IFlashcardGenerator
@@ -26,14 +27,39 @@ public class FlashcardGenerator : BaseContentGenerator, IFlashcardGenerator
         _apiClient = apiClient;
     }
 
-    public async Task<GeneratedContent> GenerateAsync(int documentId, string? teacherInstructions = null)
+    public async Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null)
     {
         await CheckRateLimitAsync();
 
-        var document = await GetDocumentWithTextAsync(documentId);
+        // Get test with all documents
+        var test = await Context.Tests
+            .Include(t => t.Documents)
+            .FirstOrDefaultAsync(t => t.Id == testId);
 
-        Logger.LogInformation("Generating flashcards for document {DocumentId}", documentId);
-        Logger.LogInformation("Processing document with text length: {TextLength} characters", document.ExtractedText?.Length ?? 0);
+        if (test == null)
+        {
+            throw new InvalidOperationException($"Test {testId} not found");
+        }
+
+        if (!test.Documents.Any())
+        {
+            throw new InvalidOperationException($"Test {testId} has no documents");
+        }
+
+        // Combine text from all documents
+        var combinedText = string.Join("\n\n--- Next Document ---\n\n",
+            test.Documents
+                .Where(d => !string.IsNullOrWhiteSpace(d.ExtractedText))
+                .Select(d => $"Document: {d.FileName}\n{d.ExtractedText}"));
+
+        if (string.IsNullOrWhiteSpace(combinedText))
+        {
+            throw new InvalidOperationException($"No text content available in test {testId} documents");
+        }
+
+        Logger.LogInformation("Generating flashcards for test {TestId} with {DocumentCount} documents",
+            testId, test.Documents.Count);
+        Logger.LogInformation("Processing combined text length: {TextLength} characters", combinedText.Length);
 
         var systemPrompt = @"You are an educational assistant that creates flashcards from study materials.
 Create flashcards in Swedish that help students learn the key concepts.
@@ -43,7 +69,7 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
 
         var userPrompt = $@"Create 10-15 flashcards from the following study material:
 
-{document.ExtractedText}
+{combinedText}
 
 {(string.IsNullOrWhiteSpace(teacherInstructions) ? "" : $"\nAdditional instructions: {teacherInstructions}")}";
 
@@ -66,13 +92,14 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
             throw new InvalidOperationException("Failed to parse flashcards from AI response");
         }
 
-        // Create GeneratedContent with flashcards
+        // Create GeneratedContent with flashcards (belongs to test, not individual document)
         var generatedContent = new GeneratedContent
         {
-            StudyDocumentId = documentId,
+            TestId = testId,
+            StudyDocumentId = null, // Generated from all documents in test
             ProcessingType = ProcessingType.Flashcards,
             GeneratedAt = DateTime.UtcNow,
-            Title = $"Flashcards - {document.FileName}",
+            Title = $"Flashcards - {test.Name}",
             Content = content,
             Flashcards = flashcardsData.Select((fc, index) => new Flashcard
             {
@@ -85,7 +112,7 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
         Context.GeneratedContents.Add(generatedContent);
         await Context.SaveChangesAsync();
 
-        Logger.LogInformation("Created {Count} flashcards for document {DocumentId}", flashcardsData.Count, documentId);
+        Logger.LogInformation("Created {Count} flashcards for test {TestId}", flashcardsData.Count, testId);
 
         return generatedContent;
     }

@@ -1,19 +1,22 @@
 namespace StudieAssistenten.Shared.Models;
 
 /// <summary>
-/// Represents content generated from a study document (flashcards, tests, or summaries)
+/// Represents content generated from a test (flashcards, tests, or summaries)
+/// Generated from all documents in the test, not individual documents
 /// </summary>
 public class GeneratedContent
 {
     public int Id { get; set; }
-    
-    public int StudyDocumentId { get; set; }
-    
-    public StudyDocument? StudyDocument { get; set; }
-    
-    public int? TestId { get; set; }
-    
+
+    // Generated content belongs to a test (required)
+    public int TestId { get; set; }
+
     public Test? Test { get; set; }
+
+    // Legacy: Previously generated content was per-document (now nullable)
+    public int? StudyDocumentId { get; set; }
+
+    public StudyDocument? StudyDocument { get; set; }
     
     public Enums.ProcessingType ProcessingType { get; set; }
     

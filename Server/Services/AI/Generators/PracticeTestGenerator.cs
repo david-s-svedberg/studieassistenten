@@ -1,4 +1,5 @@
 using Anthropic.SDK.Messaging;
+using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
@@ -7,7 +8,7 @@ namespace StudieAssistenten.Server.Services.AI.Generators;
 
 public interface IPracticeTestGenerator
 {
-    Task<GeneratedContent> GenerateAsync(int documentId, string? teacherInstructions = null);
+    Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null);
 }
 
 public class PracticeTestGenerator : BaseContentGenerator, IPracticeTestGenerator
@@ -25,13 +26,38 @@ public class PracticeTestGenerator : BaseContentGenerator, IPracticeTestGenerato
         _apiClient = apiClient;
     }
 
-    public async Task<GeneratedContent> GenerateAsync(int documentId, string? teacherInstructions = null)
+    public async Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null)
     {
         await CheckRateLimitAsync();
 
-        var document = await GetDocumentWithTextAsync(documentId);
+        // Get test with all documents
+        var test = await Context.Tests
+            .Include(t => t.Documents)
+            .FirstOrDefaultAsync(t => t.Id == testId);
 
-        Logger.LogInformation("Generating practice test for document {DocumentId}", documentId);
+        if (test == null)
+        {
+            throw new InvalidOperationException($"Test {testId} not found");
+        }
+
+        if (!test.Documents.Any())
+        {
+            throw new InvalidOperationException($"Test {testId} has no documents");
+        }
+
+        // Combine text from all documents
+        var combinedText = string.Join("\n\n--- Next Document ---\n\n",
+            test.Documents
+                .Where(d => !string.IsNullOrWhiteSpace(d.ExtractedText))
+                .Select(d => $"Document: {d.FileName}\n{d.ExtractedText}"));
+
+        if (string.IsNullOrWhiteSpace(combinedText))
+        {
+            throw new InvalidOperationException($"No text content available in test {testId} documents");
+        }
+
+        Logger.LogInformation("Generating practice test for test {TestId} with {DocumentCount} documents",
+            testId, test.Documents.Count);
 
         var systemPrompt = @"You are an educational assistant that creates practice tests from study materials.
 Create a practice test in Swedish with multiple choice questions, short answer questions, or essay questions.
@@ -40,7 +66,7 @@ Format your response as markdown with clear numbering and formatting.";
 
         var userPrompt = $@"Create a practice test with 5-10 questions from the following study material:
 
-{document.ExtractedText}
+{combinedText}
 
 Include a mix of question types (multiple choice, short answer) and provide an answer key at the end.
 
@@ -52,17 +78,18 @@ Include a mix of question types (multiple choice, short answer) and provide an a
 
         var generatedContent = new GeneratedContent
         {
-            StudyDocumentId = documentId,
+            TestId = testId,
+            StudyDocumentId = null, // Generated from all documents in test
             ProcessingType = ProcessingType.PracticeTest,
             GeneratedAt = DateTime.UtcNow,
-            Title = $"Practice Test - {document.FileName}",
+            Title = $"Practice Test - {test.Name}",
             Content = content
         };
 
         Context.GeneratedContents.Add(generatedContent);
         await Context.SaveChangesAsync();
 
-        Logger.LogInformation("Created practice test for document {DocumentId}", documentId);
+        Logger.LogInformation("Created practice test for test {TestId}", testId);
 
         return generatedContent;
     }

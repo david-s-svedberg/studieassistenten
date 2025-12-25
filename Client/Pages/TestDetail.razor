@@ -559,7 +559,7 @@ else
 
     private async Task GenerateContent(ProcessingType type)
     {
-        if (documents.Count == 0) return;
+        if (test == null || documents.Count == 0) return;
 
         isGenerating = true;
         generatingType = type;
@@ -568,7 +568,7 @@ else
         {
             var request = new GenerateContentRequestDto
             {
-                DocumentId = documents[0].Id,
+                TestId = test.Id,
                 ProcessingType = type
             };
 

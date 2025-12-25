@@ -4,11 +4,11 @@ using System.ComponentModel.DataAnnotations;
 namespace StudieAssistenten.Shared.DTOs;
 
 /// <summary>
-/// DTO for requesting content generation
+/// DTO for requesting content generation from a test (all documents combined)
 /// </summary>
 public class GenerateContentRequestDto
 {
-    public int DocumentId { get; set; }
+    public int TestId { get; set; }
 
     public ProcessingType ProcessingType { get; set; }
 
