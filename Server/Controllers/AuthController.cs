@@ -169,8 +169,18 @@ public class AuthController : BaseApiController
     [Authorize]
     public async Task<IActionResult> Logout()
     {
+        var userEmail = User.FindFirstValue(ClaimTypes.Email);
+
+        // Sign out using ASP.NET Identity
         await _signInManager.SignOutAsync();
-        _logger.LogInformation("User logged out");
-        return Ok();
+
+        // Explicitly delete the authentication cookie
+        Response.Cookies.Delete("StudieAssistenten.Auth");
+
+        // Also delete the .AspNetCore.Identity.Application cookie if it exists
+        Response.Cookies.Delete(".AspNetCore.Identity.Application");
+
+        _logger.LogInformation("User logged out: {Email}", userEmail);
+        return Ok(new { message = "Logged out successfully" });
     }
 }
