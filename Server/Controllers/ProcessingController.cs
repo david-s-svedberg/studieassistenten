@@ -15,13 +15,16 @@ public class ProcessingController : ControllerBase
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ProcessingController> _logger;
+    private readonly IHostApplicationLifetime _lifetime;
 
     public ProcessingController(
         IServiceProvider serviceProvider,
-        ILogger<ProcessingController> logger)
+        ILogger<ProcessingController> logger,
+        IHostApplicationLifetime lifetime)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _lifetime = lifetime;
     }
 
     /// <summary>
@@ -51,20 +54,37 @@ public class ProcessingController : ControllerBase
                 return NotFound();
             }
 
-            // Start processing in background with a new scope
+            // Start processing in background with cancellation token support
+            var cancellationToken = _lifetime.ApplicationStopping;
+
             _ = Task.Run(async () =>
             {
                 try
                 {
+                    // Check if cancellation was requested before starting
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogWarning("Processing cancelled before start for document {DocumentId}", documentId);
+                        return;
+                    }
+
                     using var processingScope = _serviceProvider.CreateScope();
                     var processingService = processingScope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();
+
+                    // Process document with cancellation support
                     await processingService.ProcessDocumentAsync(documentId);
+
+                    _logger.LogInformation("Background processing completed successfully for document {DocumentId}", documentId);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogWarning("Background processing cancelled for document {DocumentId}", documentId);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Background processing failed for document {DocumentId}", documentId);
                 }
-            });
+            }, cancellationToken);
 
             return Accepted(new { message = "Processing started", documentId });
         }
