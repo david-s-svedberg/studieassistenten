@@ -105,8 +105,9 @@ public class FileUploadService : IFileUploadService
             _context.StudyDocuments.Add(document);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Document uploaded successfully: {FileName} (ID: {DocumentId}) for User: {UserId}",
-                uploadDto.FileName, document.Id, userId);
+            // Note: Only log non-sensitive metadata, not file contents
+            _logger.LogInformation("Document uploaded successfully: ID {DocumentId}, Size: {Size} bytes, Type: {ContentType}",
+                document.Id, uploadDto.FileSizeBytes, uploadDto.ContentType);
 
             return MapToDto(document);
         }
@@ -170,7 +171,7 @@ public class FileUploadService : IFileUploadService
         _context.StudyDocuments.Remove(document);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Document deleted: {DocumentId} for User: {UserId}", documentId, userId);
+        _logger.LogInformation("Document deleted: {DocumentId}", documentId);
         return true;
     }
 
@@ -187,7 +188,8 @@ public class FileUploadService : IFileUploadService
         document.ExtractedText = extractedText;
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Extracted text updated for document: {DocumentId} for User: {UserId}", documentId, userId);
+        _logger.LogInformation("Extracted text updated for document: {DocumentId}, Length: {Length} characters",
+            documentId, extractedText?.Length ?? 0);
         return true;
     }
 

@@ -81,7 +81,7 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
 
         _logger.LogInformation("Generating flashcards for document {DocumentId}", documentId);
         _logger.LogInformation("Using model: {Model}, MaxTokens: {MaxTokens}", _model, _maxTokens);
-        _logger.LogInformation("Text length: {TextLength} characters", document.ExtractedText?.Length ?? 0);
+        _logger.LogInformation("Processing document with text length: {TextLength} characters", document.ExtractedText?.Length ?? 0);
 
         var messages = new List<Message>
         {
@@ -137,8 +137,9 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
             content = content.Substring(0, content.Length - 3); // Remove trailing ```
         }
         content = content.Trim();
-        
-        _logger.LogInformation("Cleaned JSON content: {Content}", content.Length > 200 ? content.Substring(0, 200) + "..." : content);
+
+        // Note: DO NOT log actual content as it may contain sensitive user data
+        _logger.LogInformation("Cleaned and validated JSON response: {Length} characters", content.Length);
 
         // Parse the JSON response
         var flashcardsData = JsonSerializer.Deserialize<List<FlashcardData>>(content, new JsonSerializerOptions 
