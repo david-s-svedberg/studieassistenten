@@ -132,7 +132,7 @@ public class DocumentProcessingService : IDocumentProcessingService
             // If PDF has no text (scanned PDF), convert pages to images and use OCR
             if (string.IsNullOrWhiteSpace(extractedText))
             {
-                _logger.LogWarning("PDF appears to be scanned or has no text content. Converting to images for OCR...");
+                _logger.LogInformation("PDF appears to be scanned or has no text content. Converting to images for OCR...");
                 extractedText = await ProcessScannedPdfAsync(filePath);
             }
 
