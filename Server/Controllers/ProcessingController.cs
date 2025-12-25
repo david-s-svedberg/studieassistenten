@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Server.Services;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 
 namespace StudieAssistenten.Server.Controllers;
@@ -120,5 +121,6 @@ public class ProcessingController : ControllerBase
 
 public class UpdateTextRequest
 {
+    [MaxLength(1_000_000, ErrorMessage = "Extracted text cannot exceed 1,000,000 characters")]
     public string Text { get; set; } = string.Empty;
 }
