@@ -110,6 +110,7 @@
         try
         {
             isUploading = true;
+            StateHasChanged(); // Force immediate UI update to show spinner
             errorMessage = null;
             successMessage = null;
 

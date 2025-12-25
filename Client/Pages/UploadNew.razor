@@ -307,6 +307,7 @@
 
             // NOW we can safely set isUploading = true (which hides InputFile)
             isUploading = true;
+            StateHasChanged(); // Force immediate UI update to show spinner
             errorMessage = null;
 
             // If this is a new test, create it first with a temporary name
