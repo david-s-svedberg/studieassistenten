@@ -139,6 +139,11 @@ builder.Services.AddAuthorization();
 // Register AutoMapper
 builder.Services.AddAutoMapper(typeof(Program));
 
+// Register repositories
+builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.ITestRepository, StudieAssistenten.Server.Infrastructure.Repositories.TestRepository>();
+builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.IDocumentRepository, StudieAssistenten.Server.Infrastructure.Repositories.DocumentRepository>();
+builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.IGeneratedContentRepository, StudieAssistenten.Server.Infrastructure.Repositories.GeneratedContentRepository>();
+
 // Register application services
 builder.Services.AddScoped<IEmailWhitelistService, EmailWhitelistService>();
 builder.Services.AddScoped<ITestService, TestService>();
