@@ -1,0 +1,87 @@
+using Anthropic.SDK;
+using Anthropic.SDK.Messaging;
+
+namespace StudieAssistenten.Server.Services.AI;
+
+/// <summary>
+/// Wraps the Anthropic SDK client and handles API calls with token recording.
+/// </summary>
+public class AnthropicApiClient : IAnthropicApiClient
+{
+    private readonly AnthropicClient _client;
+    private readonly IRateLimitingService _rateLimitingService;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<AnthropicApiClient> _logger;
+    private readonly string _model;
+    private readonly int _maxTokens;
+
+    public AnthropicApiClient(
+        IConfiguration configuration,
+        IRateLimitingService rateLimitingService,
+        ILogger<AnthropicApiClient> logger)
+    {
+        _configuration = configuration;
+        _rateLimitingService = rateLimitingService;
+        _logger = logger;
+
+        var apiKey = configuration["Anthropic:ApiKey"]
+            ?? throw new InvalidOperationException("Anthropic API key not configured");
+        _model = configuration["Anthropic:Model"] ?? "claude-3-5-sonnet-20241022";
+        _maxTokens = int.Parse(configuration["Anthropic:MaxTokens"] ?? "4000");
+
+        if (apiKey == "your-api-key-here" || string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("Please set your Anthropic API key in appsettings.Development.json");
+        }
+
+        _client = new AnthropicClient(new APIAuthentication(apiKey));
+    }
+
+    public async Task<MessageResponse> SendMessageAsync(
+        string systemPrompt,
+        string userPrompt,
+        decimal temperature = 0.7m,
+        int? maxTokens = null)
+    {
+        var messages = new List<Message>
+        {
+            new Message(RoleType.User, userPrompt)
+        };
+
+        var parameters = new MessageParameters
+        {
+            Messages = messages,
+            MaxTokens = maxTokens ?? _maxTokens,
+            Model = _model,
+            Stream = false,
+            Temperature = temperature,
+            System = new List<SystemMessage> { new SystemMessage(systemPrompt) }
+        };
+
+        _logger.LogInformation("Calling Anthropic API with model: {Model}, Temperature: {Temperature}, MaxTokens: {MaxTokens}",
+            parameters.Model, temperature, maxTokens ?? _maxTokens);
+
+        MessageResponse response;
+        try
+        {
+            response = await _client.Messages.GetClaudeMessageAsync(parameters);
+            _logger.LogInformation("API call successful, response ID: {Id}, InputTokens: {InputTokens}, OutputTokens: {OutputTokens}",
+                response.Id, response.Usage.InputTokens, response.Usage.OutputTokens);
+
+            // Record token usage for rate limiting
+            if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
+            {
+                await _rateLimitingService.RecordUsageAsync(
+                    response.Usage.InputTokens,
+                    response.Usage.OutputTokens);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Anthropic API call failed. Model: {Model}, Error: {ErrorMessage}", _model, ex.Message);
+            throw;
+        }
+
+        return response;
+    }
+}

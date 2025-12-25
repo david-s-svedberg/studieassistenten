@@ -1,6 +1,7 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using StudieAssistenten.Server.Services.Pdf;
 using StudieAssistenten.Shared.Models;
 
 namespace StudieAssistenten.Server.Services;
@@ -10,51 +11,16 @@ public interface IFlashcardPdfGenerationService
     byte[] GenerateFlashcardPdf(GeneratedContent content);
 }
 
-public class FlashcardPdfGenerationService : IFlashcardPdfGenerationService
+public class FlashcardPdfGenerationService : BasePdfGenerationService, IFlashcardPdfGenerationService
 {
-    public FlashcardPdfGenerationService()
-    {
-        // Set QuestPDF license (Community license is free for open source)
-        QuestPDF.Settings.License = LicenseType.Community;
-    }
-
     public byte[] GenerateFlashcardPdf(GeneratedContent content)
     {
-        var document = Document.Create(container =>
-        {
-            container.Page(page =>
-            {
-                page.Size(PageSizes.A4);
-                page.Margin(1, Unit.Centimetre);
-                page.DefaultTextStyle(x => x.FontSize(12));
-
-                page.Header().Element(ComposeHeader);
-                page.Content().Element(container => ComposeContent(container, content));
-                page.Footer().AlignCenter().Text(text =>
-                {
-                    text.Span("Sida ");
-                    text.CurrentPageNumber();
-                    text.Span(" av ");
-                    text.TotalPages();
-                });
-            });
-        });
-
-        return document.GeneratePdf();
+        return GeneratePdf(container => ComposeContent(container, content));
     }
 
-    void ComposeHeader(IContainer container)
+    protected override string GetDocumentTitle()
     {
-        container.Row(row =>
-        {
-            row.RelativeItem().Column(column =>
-            {
-                column.Item().Text("Flashcards").FontSize(20).Bold().FontColor(Colors.Blue.Medium);
-                column.Item().Text($"Genererad: {DateTime.Now:yyyy-MM-dd HH:mm}").FontSize(9).FontColor(Colors.Grey.Medium);
-            });
-
-            row.ConstantItem(100).Height(50).Placeholder();
-        });
+        return "Flashcards";
     }
 
     void ComposeContent(IContainer container, GeneratedContent content)

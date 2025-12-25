@@ -136,6 +136,9 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Register AutoMapper
+builder.Services.AddAutoMapper(typeof(Program));
+
 // Register application services
 builder.Services.AddScoped<IEmailWhitelistService, EmailWhitelistService>();
 builder.Services.AddScoped<ITestService, TestService>();
@@ -143,11 +146,20 @@ builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IFileValidationService, FileValidationService>();
 builder.Services.AddScoped<IOcrService, TesseractOcrService>();
 builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
+builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
+
+// AI services
+builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.IAnthropicApiClient, StudieAssistenten.Server.Services.AI.AnthropicApiClient>();
+builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.Generators.IFlashcardGenerator, StudieAssistenten.Server.Services.AI.Generators.FlashcardGenerator>();
+builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.Generators.IPracticeTestGenerator, StudieAssistenten.Server.Services.AI.Generators.PracticeTestGenerator>();
+builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.Generators.ISummaryGenerator, StudieAssistenten.Server.Services.AI.Generators.SummaryGenerator>();
+builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.ITestNamingService, StudieAssistenten.Server.Services.AI.TestNamingService>();
 builder.Services.AddScoped<IAiContentGenerationService, AiContentGenerationService>();
+
+// PDF generation services
 builder.Services.AddScoped<IFlashcardPdfGenerationService, FlashcardPdfGenerationService>();
 builder.Services.AddScoped<IPracticeTestPdfGenerationService, PracticeTestPdfGenerationService>();
 builder.Services.AddScoped<ISummaryPdfGenerationService, SummaryPdfGenerationService>();
-builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
 
 // Configure Kestrel to allow larger request body sizes (60MB)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>

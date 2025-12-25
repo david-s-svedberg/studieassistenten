@@ -1,3 +1,4 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -18,17 +19,20 @@ public class AuthController : BaseApiController
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IEmailWhitelistService _whitelistService;
+    private readonly IMapper _mapper;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IEmailWhitelistService whitelistService,
+        IMapper mapper,
         ILogger<AuthController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _whitelistService = whitelistService;
+        _mapper = mapper;
         _logger = logger;
     }
 
@@ -155,15 +159,7 @@ public class AuthController : BaseApiController
             return NotFound();
         }
 
-        return Ok(new UserDto
-        {
-            Id = user.Id,
-            Email = user.Email ?? string.Empty,
-            FullName = user.FullName,
-            ProfilePictureUrl = user.ProfilePictureUrl,
-            CreatedAt = user.CreatedAt,
-            LastLoginAt = user.LastLoginAt
-        });
+        return Ok(_mapper.Map<UserDto>(user));
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ public class ContentGenerationController : BaseApiController
     private readonly IFlashcardPdfGenerationService _flashcardPdfService;
     private readonly IPracticeTestPdfGenerationService _practiceTestPdfService;
     private readonly ISummaryPdfGenerationService _summaryPdfService;
+    private readonly IMapper _mapper;
     private readonly ILogger<ContentGenerationController> _logger;
 
     public ContentGenerationController(
@@ -28,6 +30,7 @@ public class ContentGenerationController : BaseApiController
         IFlashcardPdfGenerationService flashcardPdfService,
         IPracticeTestPdfGenerationService practiceTestPdfService,
         ISummaryPdfGenerationService summaryPdfService,
+        IMapper mapper,
         ILogger<ContentGenerationController> logger)
     {
         _aiService = aiService;
@@ -35,6 +38,7 @@ public class ContentGenerationController : BaseApiController
         _flashcardPdfService = flashcardPdfService;
         _practiceTestPdfService = practiceTestPdfService;
         _summaryPdfService = summaryPdfService;
+        _mapper = mapper;
         _logger = logger;
     }
 
@@ -73,7 +77,7 @@ public class ContentGenerationController : BaseApiController
                 _ => throw new InvalidOperationException($"Unsupported processing type: {request.ProcessingType}")
             };
 
-            return Ok(MapToDto(generatedContent));
+            return Ok(_mapper.Map<GeneratedContentDto>(generatedContent));
         }
         catch (InvalidOperationException ex)
         {
@@ -112,7 +116,7 @@ public class ContentGenerationController : BaseApiController
             .OrderByDescending(gc => gc.GeneratedAt)
             .ToListAsync();
 
-        var result = contents.Select(MapToDto).ToList();
+        var result = _mapper.Map<List<GeneratedContentDto>>(contents);
         return Ok(result);
     }
 
@@ -150,7 +154,7 @@ public class ContentGenerationController : BaseApiController
             .OrderByDescending(gc => gc.GeneratedAt)
             .ToListAsync();
 
-        var result = contents.Select(MapToDto).ToList();
+        var result = _mapper.Map<List<GeneratedContentDto>>(contents);
         return Ok(result);
     }
 
@@ -175,7 +179,7 @@ public class ContentGenerationController : BaseApiController
             return NotFound();
         }
 
-        return Ok(MapToDto(content));
+        return Ok(_mapper.Map<GeneratedContentDto>(content));
     }
 
     [HttpDelete("{id}")]
@@ -270,23 +274,4 @@ public class ContentGenerationController : BaseApiController
         }
     }
 
-    private static GeneratedContentDto MapToDto(GeneratedContent content)
-    {
-        return new GeneratedContentDto
-        {
-            Id = content.Id,
-            Title = content.Title,
-            ProcessingType = content.ProcessingType,
-            GeneratedAt = content.GeneratedAt,
-            Content = content.Content ?? string.Empty,
-            FlashcardsCount = content.Flashcards?.Count ?? 0,
-            Flashcards = content.Flashcards?.OrderBy(f => f.Order).Select(f => new FlashcardDto
-            {
-                Id = f.Id,
-                Question = f.Question,
-                Answer = f.Answer,
-                Order = f.Order
-            }).ToList() ?? new List<FlashcardDto>()
-        };
-    }
 }

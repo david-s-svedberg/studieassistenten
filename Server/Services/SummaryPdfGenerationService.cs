@@ -1,6 +1,7 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using StudieAssistenten.Server.Services.Pdf;
 using StudieAssistenten.Shared.Models;
 
 namespace StudieAssistenten.Server.Services;
@@ -10,50 +11,23 @@ public interface ISummaryPdfGenerationService
     byte[] GenerateSummaryPdf(GeneratedContent content);
 }
 
-public class SummaryPdfGenerationService : ISummaryPdfGenerationService
+public class SummaryPdfGenerationService : BasePdfGenerationService, ISummaryPdfGenerationService
 {
-    public SummaryPdfGenerationService()
-    {
-        QuestPDF.Settings.License = LicenseType.Community;
-    }
-
     public byte[] GenerateSummaryPdf(GeneratedContent content)
     {
-        var document = Document.Create(container =>
-        {
-            container.Page(page =>
-            {
-                page.Size(PageSizes.A4);
-                page.Margin(1, Unit.Centimetre);
-                page.DefaultTextStyle(x => x.FontSize(12).LineHeight(1.5f));
-
-                page.Header().Element(ComposeHeader);
-                page.Content().Element(container => ComposeContent(container, content));
-                page.Footer().AlignCenter().Text(text =>
-                {
-                    text.Span("Sida ");
-                    text.CurrentPageNumber();
-                    text.Span(" av ");
-                    text.TotalPages();
-                });
-            });
-        });
-
-        return document.GeneratePdf();
+        return GeneratePdf(container => ComposeContent(container, content));
     }
 
-    void ComposeHeader(IContainer container)
+    protected override string GetDocumentTitle()
     {
-        container.Row(row =>
-        {
-            row.RelativeItem().Column(column =>
-            {
-                column.Item().Text("Sammanfattning").FontSize(20).Bold().FontColor(Colors.Blue.Medium);
-                column.Item().Text($"Genererad: {DateTime.Now:yyyy-MM-dd HH:mm}").FontSize(9).FontColor(Colors.Grey.Medium);
-            });
+        return "Sammanfattning";
+    }
 
-            row.ConstantItem(100).Height(50).Placeholder();
-        });
+    protected override void ConfigurePage(PageDescriptor page)
+    {
+        base.ConfigurePage(page);
+        // Add custom line height for summaries
+        page.DefaultTextStyle(x => x.FontSize(12).LineHeight(1.5f));
     }
 
     void ComposeContent(IContainer container, GeneratedContent content)
