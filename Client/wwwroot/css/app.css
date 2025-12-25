@@ -145,12 +145,6 @@ a, .btn-link {
     padding: 2rem 1rem;
 }
 
-@media (max-width: 768px) {
-    .sidebar-new {
-        width: 200px;
-    }
-}
-
 .content {
     padding-top: 1.1rem;
 }

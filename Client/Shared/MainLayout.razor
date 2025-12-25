@@ -9,9 +9,23 @@
 
 <AuthorizeView>
     <Authorized>
+        @* Mobile Top Bar *@
+        <div class="mobile-topbar">
+            <button class="hamburger-btn" @onclick="ToggleMobileMenu">
+                <i class="bi bi-list"></i>
+            </button>
+            <h1 class="mobile-app-title">StudieAssistenten</h1>
+        </div>
+
+        @* Mobile Menu Overlay *@
+        @if (isMobileMenuOpen)
+        {
+            <div class="mobile-overlay" @onclick="CloseMobileMenu"></div>
+        }
+
         <div class="app-container">
             @* Left Sidebar - ChatGPT style *@
-            <div class="sidebar-new">
+            <div class="sidebar-new @(isMobileMenuOpen ? "mobile-open" : "")">
                 <div class="sidebar-header">
                     <h1 class="app-title" @onclick='() => Navigation.NavigateTo("/")'>
                         StudieAssistenten
@@ -102,6 +116,93 @@
 </AuthorizeView>
 
 <style>
+    /* Mobile Top Bar */
+    .mobile-topbar {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background-color: #202123;
+        border-bottom: 1px solid #444;
+        align-items: center;
+        padding: 0 16px;
+        z-index: 1001;
+    }
+
+    .hamburger-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 28px;
+        cursor: pointer;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+        border-radius: 6px;
+    }
+
+    .hamburger-btn:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .mobile-app-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #fff;
+        margin: 0;
+        margin-left: 16px;
+    }
+
+    /* Mobile Overlay */
+    .mobile-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+    }
+
+    /* Mobile Responsive Styles */
+    @@media (max-width: 768px) {
+        .mobile-topbar {
+            display: flex;
+        }
+
+        .mobile-overlay {
+            display: block;
+        }
+
+        .app-container {
+            padding-top: 60px; /* Account for fixed top bar */
+        }
+
+        .sidebar-new {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            bottom: 0;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 1000;
+            width: 280px;
+        }
+
+        .sidebar-new.mobile-open {
+            transform: translateX(0);
+        }
+
+        .main-content {
+            margin-left: 0;
+        }
+    }
+
     .sidebar-footer {
         padding: 16px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -194,6 +295,7 @@
     private bool isLoadingTests = true;
     private int? currentTestId = null;
     private UserDto? currentUser;
+    private bool isMobileMenuOpen = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -287,6 +389,17 @@
     private void NavigateToTest(int testId)
     {
         Navigation.NavigateTo($"/test/{testId}");
+        CloseMobileMenu(); // Close menu after navigation on mobile
+    }
+
+    private void ToggleMobileMenu()
+    {
+        isMobileMenuOpen = !isMobileMenuOpen;
+    }
+
+    private void CloseMobileMenu()
+    {
+        isMobileMenuOpen = false;
     }
 
     private async Task DeleteTest(int testId)
