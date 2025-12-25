@@ -13,16 +13,28 @@ namespace StudieAssistenten.Server.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ContentGenerationController : ControllerBase
+public class ContentGenerationController : BaseApiController
 {
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IAiContentGenerationService _aiService;
+    private readonly ApplicationDbContext _context;
+    private readonly IFlashcardPdfGenerationService _flashcardPdfService;
+    private readonly IPracticeTestPdfGenerationService _practiceTestPdfService;
+    private readonly ISummaryPdfGenerationService _summaryPdfService;
     private readonly ILogger<ContentGenerationController> _logger;
 
     public ContentGenerationController(
-        IServiceProvider serviceProvider,
+        IAiContentGenerationService aiService,
+        ApplicationDbContext context,
+        IFlashcardPdfGenerationService flashcardPdfService,
+        IPracticeTestPdfGenerationService practiceTestPdfService,
+        ISummaryPdfGenerationService summaryPdfService,
         ILogger<ContentGenerationController> logger)
     {
-        _serviceProvider = serviceProvider;
+        _aiService = aiService;
+        _context = context;
+        _flashcardPdfService = flashcardPdfService;
+        _practiceTestPdfService = practiceTestPdfService;
+        _summaryPdfService = summaryPdfService;
         _logger = logger;
     }
 
@@ -37,13 +49,8 @@ public class ContentGenerationController : ControllerBase
                 return Unauthorized();
             }
 
-            // Create a new scope for background processing
-            using var scope = _serviceProvider.CreateScope();
-            var aiService = scope.ServiceProvider.GetRequiredService<IAiContentGenerationService>();
-            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
             // Get document and verify ownership via Test relationship
-            var document = await context.StudyDocuments
+            var document = await _context.StudyDocuments
                 .Include(d => d.Test)
                 .FirstOrDefaultAsync(d => d.Id == request.DocumentId);
 
@@ -60,9 +67,9 @@ public class ContentGenerationController : ControllerBase
             // Generate content based on type
             var generatedContent = request.ProcessingType switch
             {
-                ProcessingType.Flashcards => await aiService.GenerateFlashcardsAsync(request.DocumentId, request.TeacherInstructions),
-                ProcessingType.PracticeTest => await aiService.GeneratePracticeTestAsync(request.DocumentId, request.TeacherInstructions),
-                ProcessingType.Summary => await aiService.GenerateSummaryAsync(request.DocumentId, request.TeacherInstructions),
+                ProcessingType.Flashcards => await _aiService.GenerateFlashcardsAsync(request.DocumentId, request.TeacherInstructions),
+                ProcessingType.PracticeTest => await _aiService.GeneratePracticeTestAsync(request.DocumentId, request.TeacherInstructions),
+                ProcessingType.Summary => await _aiService.GenerateSummaryAsync(request.DocumentId, request.TeacherInstructions),
                 _ => throw new InvalidOperationException($"Unsupported processing type: {request.ProcessingType}")
             };
 
@@ -89,11 +96,8 @@ public class ContentGenerationController : ControllerBase
             return Unauthorized();
         }
 
-        using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
         // Verify document ownership via Test relationship
-        var document = await context.StudyDocuments
+        var document = await _context.StudyDocuments
             .Include(d => d.Test)
             .FirstOrDefaultAsync(d => d.Id == documentId);
 
@@ -102,7 +106,7 @@ public class ContentGenerationController : ControllerBase
             return NotFound();
         }
 
-        var contents = await context.GeneratedContents
+        var contents = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Where(gc => gc.StudyDocumentId == documentId)
             .OrderByDescending(gc => gc.GeneratedAt)
@@ -121,18 +125,15 @@ public class ContentGenerationController : ControllerBase
             return Unauthorized();
         }
 
-        using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
         // Verify test ownership
-        var test = await context.Tests.FirstOrDefaultAsync(t => t.Id == testId && t.UserId == userId);
+        var test = await _context.Tests.FirstOrDefaultAsync(t => t.Id == testId && t.UserId == userId);
         if (test == null)
         {
             return NotFound();
         }
 
         // Get all documents for this test
-        var documentIds = await context.StudyDocuments
+        var documentIds = await _context.StudyDocuments
             .Where(d => d.TestId == testId)
             .Select(d => d.Id)
             .ToListAsync();
@@ -143,7 +144,7 @@ public class ContentGenerationController : ControllerBase
         }
 
         // Get all generated content for those documents
-        var contents = await context.GeneratedContents
+        var contents = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Where(gc => documentIds.Contains(gc.StudyDocumentId))
             .OrderByDescending(gc => gc.GeneratedAt)
@@ -162,11 +163,8 @@ public class ContentGenerationController : ControllerBase
             return Unauthorized();
         }
 
-        using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
         // Get content and verify ownership via Document -> Test relationship
-        var content = await context.GeneratedContents
+        var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Include(gc => gc.StudyDocument)
                 .ThenInclude(d => d!.Test)
@@ -189,11 +187,8 @@ public class ContentGenerationController : ControllerBase
             return Unauthorized();
         }
 
-        using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
         // Get content and verify ownership via Document -> Test relationship
-        var content = await context.GeneratedContents
+        var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Include(gc => gc.StudyDocument)
                 .ThenInclude(d => d!.Test)
@@ -205,8 +200,8 @@ public class ContentGenerationController : ControllerBase
         }
 
         // content is guaranteed non-null here due to check above
-        context.GeneratedContents.Remove(content);
-        await context.SaveChangesAsync();
+        _context.GeneratedContents.Remove(content);
+        await _context.SaveChangesAsync();
 
         _logger.LogInformation("Deleted generated content {ContentId}", id);
 
@@ -222,11 +217,8 @@ public class ContentGenerationController : ControllerBase
             return Unauthorized();
         }
 
-        using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
         // Get content and verify ownership via Document -> Test relationship
-        var content = await context.GeneratedContents
+        var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Include(gc => gc.StudyDocument)
                 .ThenInclude(d => d!.Test)
@@ -249,20 +241,17 @@ public class ContentGenerationController : ControllerBase
                     {
                         return BadRequest(new { message = "No flashcards found for this content" });
                     }
-                    var flashcardService = scope.ServiceProvider.GetRequiredService<IFlashcardPdfGenerationService>();
-                    pdfBytes = flashcardService.GenerateFlashcardPdf(content);
+                    pdfBytes = _flashcardPdfService.GenerateFlashcardPdf(content);
                     fileName = $"flashcards_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
                     break;
 
                 case ProcessingType.PracticeTest:
-                    var practiceTestService = scope.ServiceProvider.GetRequiredService<IPracticeTestPdfGenerationService>();
-                    pdfBytes = practiceTestService.GeneratePracticeTestPdf(content);
+                    pdfBytes = _practiceTestPdfService.GeneratePracticeTestPdf(content);
                     fileName = $"practice_test_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
                     break;
 
                 case ProcessingType.Summary:
-                    var summaryService = scope.ServiceProvider.GetRequiredService<ISummaryPdfGenerationService>();
-                    pdfBytes = summaryService.GenerateSummaryPdf(content);
+                    pdfBytes = _summaryPdfService.GenerateSummaryPdf(content);
                     fileName = $"summary_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
                     break;
 

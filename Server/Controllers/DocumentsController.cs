@@ -9,7 +9,7 @@ namespace StudieAssistenten.Server.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class DocumentsController : ControllerBase
+public class DocumentsController : BaseApiController
 {
     private readonly IFileUploadService _fileUploadService;
     private readonly IFileValidationService _fileValidationService;
@@ -33,11 +33,7 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             if (file == null || file.Length == 0)
             {
@@ -112,11 +108,7 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var documents = await _fileUploadService.GetAllDocumentsAsync(userId);
             return Ok(documents);
@@ -136,11 +128,7 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var document = await _fileUploadService.GetDocumentAsync(id, userId);
             if (document == null)
@@ -165,11 +153,7 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var result = await _fileUploadService.DeleteDocumentAsync(id, userId);
             if (!result)
@@ -194,11 +178,7 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var document = await _fileUploadService.GetDocumentAsync(id, userId);
             if (document == null)

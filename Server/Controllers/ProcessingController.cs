@@ -11,18 +11,24 @@ namespace StudieAssistenten.Server.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ProcessingController : ControllerBase
+public class ProcessingController : BaseApiController
 {
-    private readonly IServiceProvider _serviceProvider;
+    private readonly ApplicationDbContext _context;
+    private readonly IDocumentProcessingService _processingService;
+    private readonly IFileUploadService _fileUploadService;
     private readonly ILogger<ProcessingController> _logger;
     private readonly IHostApplicationLifetime _lifetime;
 
     public ProcessingController(
-        IServiceProvider serviceProvider,
+        ApplicationDbContext context,
+        IDocumentProcessingService processingService,
+        IFileUploadService fileUploadService,
         ILogger<ProcessingController> logger,
         IHostApplicationLifetime lifetime)
     {
-        _serviceProvider = serviceProvider;
+        _context = context;
+        _processingService = processingService;
+        _fileUploadService = fileUploadService;
         _logger = logger;
         _lifetime = lifetime;
     }
@@ -42,10 +48,7 @@ public class ProcessingController : ControllerBase
             }
 
             // Verify document ownership via Test relationship
-            using var scope = _serviceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-            var document = await context.StudyDocuments
+            var document = await _context.StudyDocuments
                 .Include(d => d.Test)
                 .FirstOrDefaultAsync(d => d.Id == documentId);
 
@@ -68,11 +71,8 @@ public class ProcessingController : ControllerBase
                         return;
                     }
 
-                    using var processingScope = _serviceProvider.CreateScope();
-                    var processingService = processingScope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();
-
                     // Process document with cancellation support
-                    await processingService.ProcessDocumentAsync(documentId);
+                    await _processingService.ProcessDocumentAsync(documentId);
 
                     _logger.LogInformation("Background processing completed successfully for document {DocumentId}", documentId);
                 }
@@ -109,11 +109,8 @@ public class ProcessingController : ControllerBase
                 return Unauthorized();
             }
 
-            using var scope = _serviceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
             // Verify document ownership via Test relationship
-            var document = await context.StudyDocuments
+            var document = await _context.StudyDocuments
                 .Include(d => d.Test)
                 .FirstOrDefaultAsync(d => d.Id == documentId);
 
@@ -122,8 +119,7 @@ public class ProcessingController : ControllerBase
                 return NotFound();
             }
 
-            var fileUploadService = scope.ServiceProvider.GetRequiredService<IFileUploadService>();
-            var result = await fileUploadService.UpdateExtractedTextAsync(documentId, request.Text, userId);
+            var result = await _fileUploadService.UpdateExtractedTextAsync(documentId, request.Text, userId);
             if (!result)
             {
                 return NotFound();

@@ -9,7 +9,7 @@ namespace StudieAssistenten.Server.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class TestsController : ControllerBase
+public class TestsController : BaseApiController
 {
     private readonly ITestService _testService;
     private readonly IAiContentGenerationService _aiService;
@@ -38,11 +38,7 @@ public class TestsController : ControllerBase
                 return BadRequest("Test name is required");
             }
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var result = await _testService.CreateTestAsync(request, userId);
             return Ok(result);
@@ -62,11 +58,7 @@ public class TestsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var tests = await _testService.GetAllTestsAsync(userId);
             return Ok(tests);
@@ -86,11 +78,7 @@ public class TestsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var test = await _testService.GetTestAsync(id, userId);
             if (test == null)
@@ -120,11 +108,7 @@ public class TestsController : ControllerBase
                 return BadRequest("Test name is required");
             }
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var success = await _testService.UpdateTestAsync(id, request, userId);
             if (!success)
@@ -149,11 +133,7 @@ public class TestsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var success = await _testService.DeleteTestAsync(id, userId);
             if (!success)
@@ -178,11 +158,7 @@ public class TestsController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
+            var userId = GetCurrentUserId();
 
             var test = await _testService.GetTestAsync(id, userId);
             if (test == null)
