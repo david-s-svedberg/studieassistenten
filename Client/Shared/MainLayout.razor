@@ -13,7 +13,9 @@
             @* Left Sidebar - ChatGPT style *@
             <div class="sidebar-new">
                 <div class="sidebar-header">
-                    <h1 class="app-title">StudieAssistenten</h1>
+                    <h1 class="app-title" @onclick='() => Navigation.NavigateTo("/")'>
+                        StudieAssistenten
+                    </h1>
                     <button class="btn btn-primary w-100 mb-3" @onclick="CreateNewTest">
                         <i class="bi bi-plus-lg"></i> New Test
                     </button>
