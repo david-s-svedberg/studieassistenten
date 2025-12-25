@@ -174,6 +174,45 @@ public class DocumentsController : BaseApiController
     }
 
     /// <summary>
+    /// View a document file inline (for iframe display)
+    /// </summary>
+    [HttpGet("{id}/view")]
+    public async Task<ActionResult> View(int id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+
+            var document = await _fileUploadService.GetDocumentAsync(id, userId);
+            if (document == null)
+            {
+                return NotFound();
+            }
+
+            // Get the full file path using IFileStorage
+            var filePath = _fileStorage.GetFilePath(document.StoredFileName);
+
+            // Check if file exists
+            if (!await _fileStorage.ExistsAsync(filePath))
+            {
+                _logger.LogError("File not found on disk: {FilePath}", filePath);
+                return NotFound("File not found on server");
+            }
+
+            // Read the file using IFileStorage
+            var fileStream = await _fileStorage.ReadAsync(filePath);
+
+            // Return file for inline display (no filename = inline, not download)
+            return File(fileStream, document.ContentType ?? "application/octet-stream");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error viewing document {DocumentId}", id);
+            return StatusCode(500, "An error occurred while viewing the file");
+        }
+    }
+
+    /// <summary>
     /// Download a document file (with authorization)
     /// </summary>
     [HttpGet("{id}/download")]
@@ -202,7 +241,7 @@ public class DocumentsController : BaseApiController
             // Read the file using IFileStorage
             var fileStream = await _fileStorage.ReadAsync(filePath);
 
-            // Return file with appropriate content type
+            // Return file with filename for download (triggers browser download)
             return File(fileStream, document.ContentType ?? "application/octet-stream", document.FileName);
         }
         catch (Exception ex)
