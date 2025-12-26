@@ -58,6 +58,11 @@ public class ContentGenerationController : BaseApiController
     [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GenerateContent([FromBody] GenerateContentRequestDto request)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         try
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
