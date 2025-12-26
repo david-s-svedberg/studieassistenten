@@ -102,9 +102,31 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
                 column.Item().PaddingTop(15).Column(answerColumn =>
                 {
                     var answerLines = answerKeyContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var line in answerLines)
+                    int j = 0;
+
+                    while (j < answerLines.Length)
                     {
-                        RenderAnswerKeyLine(answerColumn, line.Trim());
+                        var line = answerLines[j].Trim();
+
+                        // Check if this is a table
+                        if (line.Contains("|") && j + 1 < answerLines.Length &&
+                            answerLines[j + 1].Trim().StartsWith("|") && answerLines[j + 1].Contains("---"))
+                        {
+                            var tableLines = new List<string> { line, answerLines[j + 1] };
+                            j += 2;
+
+                            while (j < answerLines.Length && answerLines[j].Trim().StartsWith("|"))
+                            {
+                                tableLines.Add(answerLines[j].Trim());
+                                j++;
+                            }
+
+                            answerColumn.Item().Element(container => RenderMarkdownTable(container, tableLines));
+                            continue;
+                        }
+
+                        RenderAnswerKeyLine(answerColumn, line);
+                        j++;
                     }
                 });
             }
@@ -189,6 +211,65 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
 
         // All other text with markdown support
         column.Item().DefaultTextStyle(x => x.FontSize(11)).Text(text => RenderMarkdownText(text, line));
+    }
+
+    /// <summary>
+    /// Renders a markdown table as a proper PDF table
+    /// </summary>
+    void RenderMarkdownTable(IContainer container, List<string> tableLines)
+    {
+        if (tableLines.Count < 3) return; // Need at least header, separator, and one data row
+
+        // Parse table structure
+        var headerRow = tableLines[0].Split('|', StringSplitOptions.RemoveEmptyEntries)
+            .Select(c => c.Trim()).ToArray();
+        var dataRows = new List<string[]>();
+
+        // Skip separator row (index 1) and parse data rows
+        for (int i = 2; i < tableLines.Count; i++)
+        {
+            var cells = tableLines[i].Split('|', StringSplitOptions.RemoveEmptyEntries)
+                .Select(c => c.Trim()).ToArray();
+            if (cells.Length > 0)
+                dataRows.Add(cells);
+        }
+
+        // Render table
+        container.Padding(5).Table(table =>
+        {
+            // Define columns
+            table.ColumnsDefinition(columns =>
+            {
+                for (int i = 0; i < headerRow.Length; i++)
+                {
+                    columns.RelativeColumn();
+                }
+            });
+
+            // Header row
+            table.Header(header =>
+            {
+                foreach (var cell in headerRow)
+                {
+                    header.Cell().Border(1).BorderColor(Colors.Grey.Medium)
+                        .Background(Colors.Grey.Lighten3)
+                        .Padding(5)
+                        .Text(cell).FontSize(10).Bold();
+                }
+            });
+
+            // Data rows
+            foreach (var row in dataRows)
+            {
+                for (int i = 0; i < row.Length && i < headerRow.Length; i++)
+                {
+                    table.Cell().Border(1).BorderColor(Colors.Grey.Lighten1)
+                        .Padding(5)
+                        .DefaultTextStyle(x => x.FontSize(10))
+                        .Text(text => RenderMarkdownText(text, row[i]));
+                }
+            }
+        });
     }
 
     /// <summary>

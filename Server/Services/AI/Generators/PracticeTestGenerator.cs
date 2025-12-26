@@ -82,7 +82,8 @@ Format your response using markdown:
 - Use numbered lists (1., 2., etc.) for questions
 - Use lettered lists (A), B), C), D)) for multiple choice options
 - Use ## headings for sections (Questions, Answer Key)
-- Use bullet points (-) in explanations when needed";
+- Use bullet points (-) in explanations when needed
+- Use tables (| column | column |) for structured answer explanations or data";
 
         var userPrompt = $@"Create a practice test with {questionCount} from the following study material:
 

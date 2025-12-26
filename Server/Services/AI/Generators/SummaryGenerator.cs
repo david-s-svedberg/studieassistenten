@@ -86,7 +86,8 @@ Use markdown formatting:
 - Use **bold** for important terms and concepts
 - Use headings (##, ###) to organize sections
 - Use bullet points (-) for lists
-- Use numbered lists (1., 2., etc.) for sequential information";
+- Use numbered lists (1., 2., etc.) for sequential information
+- Use tables (| column | column |) for structured data like comparisons or examples";
 
         var userPrompt = $@"Create a summary of the following study material:
 

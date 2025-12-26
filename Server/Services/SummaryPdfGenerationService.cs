@@ -64,52 +64,136 @@ public class SummaryPdfGenerationService : BasePdfGenerationService, ISummaryPdf
             if (!string.IsNullOrWhiteSpace(content.Content))
             {
                 var lines = content.Content.Split('\n');
+                int i = 0;
 
-                foreach (var line in lines)
+                while (i < lines.Length)
                 {
-                    var trimmedLine = line.Trim();
+                    var trimmedLine = lines[i].Trim();
 
                     if (string.IsNullOrWhiteSpace(trimmedLine))
                     {
                         column.Item().PaddingTop(5);
+                        i++;
                         continue;
                     }
 
-                    // Headers (###, ##, or #)
-                    if (trimmedLine.StartsWith("### "))
+                    // Check if this is a table (line contains | and next line is separator)
+                    if (trimmedLine.Contains("|") && i + 1 < lines.Length &&
+                        lines[i + 1].Trim().StartsWith("|") && lines[i + 1].Contains("---"))
                     {
-                        column.Item().PaddingTop(8).Text(trimmedLine.Replace("### ", ""))
+                        // Parse and render table
+                        var tableLines = new List<string> { trimmedLine, lines[i + 1] };
+                        i += 2;
+
+                        // Collect all table rows
+                        while (i < lines.Length && lines[i].Trim().StartsWith("|"))
+                        {
+                            tableLines.Add(lines[i].Trim());
+                            i++;
+                        }
+
+                        column.Item().Element(container => RenderMarkdownTable(container, tableLines));
+                        continue;
+                    }
+
+                    var line = trimmedLine;
+
+                    // Headers (###, ##, or #)
+                    if (line.StartsWith("### "))
+                    {
+                        column.Item().PaddingTop(8).Text(line.Replace("### ", ""))
                             .FontSize(13).Bold().FontColor(Colors.Blue.Darken1);
                     }
-                    else if (trimmedLine.StartsWith("## "))
+                    else if (line.StartsWith("## "))
                     {
-                        column.Item().PaddingTop(10).Text(trimmedLine.Replace("## ", ""))
+                        column.Item().PaddingTop(10).Text(line.Replace("## ", ""))
                             .FontSize(14).Bold().FontColor(Colors.Blue.Darken1);
                     }
-                    else if (trimmedLine.StartsWith("# "))
+                    else if (line.StartsWith("# "))
                     {
-                        column.Item().PaddingTop(10).Text(trimmedLine.Replace("# ", ""))
+                        column.Item().PaddingTop(10).Text(line.Replace("# ", ""))
                             .FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
                     }
                     // Bullet points
-                    else if (trimmedLine.StartsWith("- ") || trimmedLine.StartsWith("* "))
+                    else if (line.StartsWith("- ") || line.StartsWith("* "))
                     {
                         column.Item().Row(row =>
                         {
                             row.ConstantItem(20).Text("•");
-                            row.RelativeItem().Text(text => RenderMarkdownText(text, trimmedLine.Substring(2).Trim()));
+                            row.RelativeItem().Text(text => RenderMarkdownText(text, line.Substring(2).Trim()));
                         });
                     }
                     // Numbered lists
-                    else if (System.Text.RegularExpressions.Regex.IsMatch(trimmedLine, @"^\d+\.\s"))
+                    else if (System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d+\.\s"))
                     {
-                        column.Item().PaddingLeft(10).Text(text => RenderMarkdownText(text, trimmedLine));
+                        column.Item().PaddingLeft(10).Text(text => RenderMarkdownText(text, line));
                     }
                     // All other text (with potential markdown)
                     else
                     {
-                        column.Item().Text(text => RenderMarkdownText(text, trimmedLine));
+                        column.Item().Text(text => RenderMarkdownText(text, line));
                     }
+
+                    i++;
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Renders a markdown table as a proper PDF table
+    /// </summary>
+    void RenderMarkdownTable(IContainer container, List<string> tableLines)
+    {
+        if (tableLines.Count < 3) return; // Need at least header, separator, and one data row
+
+        // Parse table structure
+        var headerRow = tableLines[0].Split('|', StringSplitOptions.RemoveEmptyEntries)
+            .Select(c => c.Trim()).ToArray();
+        var dataRows = new List<string[]>();
+
+        // Skip separator row (index 1) and parse data rows
+        for (int i = 2; i < tableLines.Count; i++)
+        {
+            var cells = tableLines[i].Split('|', StringSplitOptions.RemoveEmptyEntries)
+                .Select(c => c.Trim()).ToArray();
+            if (cells.Length > 0)
+                dataRows.Add(cells);
+        }
+
+        // Render table
+        container.Padding(5).Table(table =>
+        {
+            // Define columns
+            table.ColumnsDefinition(columns =>
+            {
+                for (int i = 0; i < headerRow.Length; i++)
+                {
+                    columns.RelativeColumn();
+                }
+            });
+
+            // Header row
+            table.Header(header =>
+            {
+                foreach (var cell in headerRow)
+                {
+                    header.Cell().Border(1).BorderColor(Colors.Grey.Medium)
+                        .Background(Colors.Grey.Lighten3)
+                        .Padding(5)
+                        .Text(cell).FontSize(10).Bold();
+                }
+            });
+
+            // Data rows
+            foreach (var row in dataRows)
+            {
+                for (int i = 0; i < row.Length && i < headerRow.Length; i++)
+                {
+                    table.Cell().Border(1).BorderColor(Colors.Grey.Lighten1)
+                        .Padding(5)
+                        .DefaultTextStyle(x => x.FontSize(10))
+                        .Text(text => RenderMarkdownText(text, row[i]));
                 }
             }
         });
