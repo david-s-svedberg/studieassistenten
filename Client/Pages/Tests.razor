@@ -216,8 +216,8 @@
     private string FormatCharCount(int count)
     {
         if (count < 1000) return $"{count} chars";
-        if (count < 1000000) return $"{count / 1000:F1}K chars";
-        return $"{count / 1000000:F1}M chars";
+        if (count < 1000000) return $"{(count / 1000.0).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}K chars";
+        return $"{(count / 1000000.0).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}M chars";
     }
 
     private bool confirm(string message)
