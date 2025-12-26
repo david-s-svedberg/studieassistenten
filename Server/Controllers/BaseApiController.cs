@@ -35,12 +35,16 @@ public abstract class BaseApiController : ControllerBase
     /// </summary>
     /// <param name="test">The test to verify</param>
     /// <param name="userId">The current user's ID</param>
-    /// <returns>NotFoundResult if test is null or doesn't belong to user, otherwise null</returns>
+    /// <returns>NotFoundResult if test is null, ForbidResult if doesn't belong to user, otherwise null</returns>
     protected IActionResult? VerifyTestOwnership(Test? test, string userId)
     {
-        if (test == null || test.UserId != userId)
+        if (test == null)
         {
             return NotFound();
+        }
+        if (test.UserId != userId)
+        {
+            return Forbid();
         }
         return null;
     }
@@ -50,12 +54,16 @@ public abstract class BaseApiController : ControllerBase
     /// </summary>
     /// <param name="document">The document to verify</param>
     /// <param name="userId">The current user's ID</param>
-    /// <returns>NotFoundResult if document is null or doesn't belong to user, otherwise null</returns>
+    /// <returns>NotFoundResult if document is null, ForbidResult if doesn't belong to user, otherwise null</returns>
     protected IActionResult? VerifyDocumentOwnership(StudyDocument? document, string userId)
     {
-        if (document == null || document.Test == null || document.Test.UserId != userId)
+        if (document == null || document.Test == null)
         {
             return NotFound();
+        }
+        if (document.Test.UserId != userId)
+        {
+            return Forbid();
         }
         return null;
     }
@@ -65,12 +73,16 @@ public abstract class BaseApiController : ControllerBase
     /// </summary>
     /// <param name="content">The generated content to verify</param>
     /// <param name="userId">The current user's ID</param>
-    /// <returns>NotFoundResult if content is null or doesn't belong to user, otherwise null</returns>
+    /// <returns>NotFoundResult if content is null, ForbidResult if doesn't belong to user, otherwise null</returns>
     protected IActionResult? VerifyContentOwnership(GeneratedContent? content, string userId)
     {
-        if (content == null || content.Test?.UserId != userId)
+        if (content == null || content.Test == null)
         {
             return NotFound();
+        }
+        if (content.Test.UserId != userId)
+        {
+            return Forbid();
         }
         return null;
     }

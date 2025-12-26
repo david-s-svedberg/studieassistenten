@@ -89,56 +89,61 @@ builder.Services.AddAuthentication(options =>
         context.Response.Redirect(context.RedirectUri);
         return Task.CompletedTask;
     };
-})
-.AddGoogle("Google", options =>
-{
-    options.ClientId = builder.Configuration["Authentication:Google:ClientId"]
-        ?? throw new InvalidOperationException("Google ClientId not configured");
-    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]
-        ?? throw new InvalidOperationException("Google ClientSecret not configured");
-    options.SaveTokens = true;
-
-    // Request user profile information
-    options.Scope.Add("profile");
-    options.Scope.Add("email");
-
-    // Increase timeout and configure backchannel for IPv4
-    options.BackchannelTimeout = TimeSpan.FromSeconds(30);
-    options.BackchannelHttpHandler = new SocketsHttpHandler
-    {
-        ConnectTimeout = TimeSpan.FromSeconds(15),
-        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-        ConnectCallback = async (context, cancellationToken) =>
-        {
-            // Force IPv4 to avoid IPv6 timeout issues
-            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
-            {
-                NoDelay = true
-            };
-            try
-            {
-                await socket.ConnectAsync(context.DnsEndPoint, cancellationToken).ConfigureAwait(false);
-                return new NetworkStream(socket, ownsSocket: true);
-            }
-            catch
-            {
-                socket.Dispose();
-                throw;
-            }
-        }
-    };
-    
-    // Add event handlers for better error reporting
-    options.Events.OnRemoteFailure = context =>
-    {
-        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-        logger.LogError(context.Failure, "Google OAuth remote failure");
-        
-        context.Response.Redirect($"/login?error=oauth_failure&message={Uri.EscapeDataString(context.Failure?.Message ?? "Unknown error")}");
-        context.HandleResponse();
-        return Task.CompletedTask;
-    };
 });
+
+// Add Google authentication (skip in test environment)
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddAuthentication().AddGoogle("Google", options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"]
+            ?? throw new InvalidOperationException("Google ClientId not configured");
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]
+            ?? throw new InvalidOperationException("Google ClientSecret not configured");
+        options.SaveTokens = true;
+
+        // Request user profile information
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+
+        // Increase timeout and configure backchannel for IPv4
+        options.BackchannelTimeout = TimeSpan.FromSeconds(30);
+        options.BackchannelHttpHandler = new SocketsHttpHandler
+        {
+            ConnectTimeout = TimeSpan.FromSeconds(15),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            ConnectCallback = async (context, cancellationToken) =>
+            {
+                // Force IPv4 to avoid IPv6 timeout issues
+                var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+                {
+                    NoDelay = true
+                };
+                try
+                {
+                    await socket.ConnectAsync(context.DnsEndPoint, cancellationToken).ConfigureAwait(false);
+                    return new NetworkStream(socket, ownsSocket: true);
+                }
+                catch
+                {
+                    socket.Dispose();
+                    throw;
+                }
+            }
+        };
+
+        // Add event handlers for better error reporting
+        options.Events.OnRemoteFailure = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogError(context.Failure, "Google OAuth remote failure");
+
+            context.Response.Redirect($"/login?error=oauth_failure&message={Uri.EscapeDataString(context.Failure?.Message ?? "Unknown error")}");
+            context.HandleResponse();
+            return Task.CompletedTask;
+        };
+    });
+}
 
 builder.Services.AddAuthorization();
 
@@ -300,22 +305,25 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Initialize database and apply migrations
-using (var scope = app.Services.CreateScope())
+// Initialize database and apply migrations (skip in test environment)
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    try
-    {
-        // Apply pending migrations
-        dbContext.Database.Migrate();
-        logger.LogInformation("Database migrations applied successfully");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Error applying database migrations");
-        throw;
+        try
+        {
+            // Apply pending migrations
+            dbContext.Database.Migrate();
+            logger.LogInformation("Database migrations applied successfully");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error applying database migrations");
+            throw;
+        }
     }
 }
 
@@ -325,3 +333,6 @@ app.MapControllers();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+// Make Program class accessible to integration tests
+public partial class Program { }

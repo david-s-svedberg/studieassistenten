@@ -48,7 +48,7 @@ public class TestsController : BaseApiController
             var userId = GetCurrentUserId();
 
             var result = await _testService.CreateTestAsync(request, userId);
-            return Ok(result);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
         catch (Exception ex)
         {
@@ -127,15 +127,27 @@ public class TestsController : BaseApiController
     {
         try
         {
-            var userId = GetCurrentUserId();
-
-            var test = await _testService.GetTestDetailAsync(id, userId);
+            // Fetch the resource first
+            var test = await _testRepository.GetByIdAsync(id);
             if (test == null)
             {
                 return NotFound($"Test with ID {id} not found");
             }
 
-            return Ok(test);
+            // Check authorization against the resource
+            var authResult = await _authorizationService.AuthorizeAsync(
+                User, test, ResourceOperations.Read);
+
+            if (!authResult.Succeeded)
+            {
+                return Forbid();
+            }
+
+            // Get detailed view
+            var userId = GetCurrentUserId();
+            var testDetail = await _testService.GetTestDetailAsync(id, userId);
+
+            return Ok(testDetail);
         }
         catch (Exception ex)
         {
@@ -157,13 +169,25 @@ public class TestsController : BaseApiController
                 return BadRequest("Test name is required");
             }
 
-            var userId = GetCurrentUserId();
-
-            var success = await _testService.UpdateTestAsync(id, request, userId);
-            if (!success)
+            // Fetch the resource first
+            var test = await _testRepository.GetByIdAsync(id);
+            if (test == null)
             {
                 return NotFound($"Test with ID {id} not found");
             }
+
+            // Check authorization against the resource
+            var authResult = await _authorizationService.AuthorizeAsync(
+                User, test, ResourceOperations.Update);
+
+            if (!authResult.Succeeded)
+            {
+                return Forbid();
+            }
+
+            // Proceed with update
+            var userId = GetCurrentUserId();
+            await _testService.UpdateTestAsync(id, request, userId);
 
             return NoContent();
         }
@@ -200,7 +224,7 @@ public class TestsController : BaseApiController
 
             // Proceed with deletion
             var userId = GetCurrentUserId();
-            var success = await _testService.DeleteTestAsync(id, userId);
+            await _testService.DeleteTestAsync(id, userId);
 
             return NoContent();
         }
