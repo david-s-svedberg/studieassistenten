@@ -20,13 +20,9 @@ public class ContentGenerationService
     {
         try
         {
-            _logger.LogInformation("Generating {ProcessingType} content for test {TestId}",
-                request.ProcessingType, request.TestId);
             var response = await _httpClient.PostAsJsonAsync("api/ContentGeneration/generate", request);
             response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadFromJsonAsync<GeneratedContentDto>();
-            _logger.LogInformation("Content generated successfully: {ContentId}", content?.Id);
-            return content;
+            return await response.Content.ReadFromJsonAsync<GeneratedContentDto>();
         }
         catch (Exception ex)
         {
@@ -40,13 +36,9 @@ public class ContentGenerationService
     {
         try
         {
-            _logger.LogInformation("Retrieving generated contents for document {DocumentId}", documentId);
             var response = await _httpClient.GetAsync($"api/ContentGeneration/document/{documentId}");
             response.EnsureSuccessStatusCode();
-            var contents = await response.Content.ReadFromJsonAsync<List<GeneratedContentDto>>() ?? new List<GeneratedContentDto>();
-            _logger.LogInformation("Retrieved {Count} generated contents for document {DocumentId}",
-                contents.Count, documentId);
-            return contents;
+            return await response.Content.ReadFromJsonAsync<List<GeneratedContentDto>>() ?? new List<GeneratedContentDto>();
         }
         catch (Exception ex)
         {
@@ -59,7 +51,6 @@ public class ContentGenerationService
     {
         try
         {
-            _logger.LogInformation("Retrieving generated content {ContentId}", contentId);
             var response = await _httpClient.GetAsync($"api/ContentGeneration/{contentId}");
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<GeneratedContentDto>();
@@ -75,10 +66,8 @@ public class ContentGenerationService
     {
         try
         {
-            _logger.LogInformation("Deleting generated content {ContentId}", contentId);
             var response = await _httpClient.DeleteAsync($"api/ContentGeneration/{contentId}");
             response.EnsureSuccessStatusCode();
-            _logger.LogInformation("Generated content {ContentId} deleted successfully", contentId);
         }
         catch (Exception ex)
         {
@@ -91,13 +80,9 @@ public class ContentGenerationService
     {
         try
         {
-            _logger.LogInformation("Retrieving generated contents for test {TestId}", testId);
             var response = await _httpClient.GetAsync($"api/ContentGeneration/test/{testId}");
             response.EnsureSuccessStatusCode();
-            var contents = await response.Content.ReadFromJsonAsync<List<GeneratedContentDto>>() ?? new List<GeneratedContentDto>();
-            _logger.LogInformation("Retrieved {Count} generated contents for test {TestId}",
-                contents.Count, testId);
-            return contents;
+            return await response.Content.ReadFromJsonAsync<List<GeneratedContentDto>>() ?? new List<GeneratedContentDto>();
         }
         catch (Exception ex)
         {
