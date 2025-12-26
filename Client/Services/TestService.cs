@@ -99,7 +99,6 @@ public class TestService : ITestService
             {
                 // Read as plain text and remove any surrounding quotes
                 var result = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[DEBUG] Raw response: '{result}'");
 
                 // Remove JSON quotes if present
                 if (result.StartsWith("\"") && result.EndsWith("\""))
@@ -111,9 +110,8 @@ public class TestService : ITestService
             }
             return null;
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"[ERROR] SuggestTestNameAsync failed: {ex.Message}");
             return null;
         }
     }

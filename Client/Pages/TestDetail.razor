@@ -859,9 +859,9 @@ else
                 await LoadGeneratedContent();
             }
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"Error generating content: {ex.Message}");
+            // TODO: Show error message to user
         }
         finally
         {
@@ -929,11 +929,9 @@ else
                 try
                 {
                     await DocumentService.UpdateExtractedTextAsync(document.Id, textContent);
-                    Console.WriteLine($"[Text Upload] Set extracted text for document {document.Id}");
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"Failed to set extracted text: {ex.Message}");
                     textContentError = "Text uploaded but failed to set content. Try editing the document.";
                 }
 
@@ -1114,14 +1112,12 @@ else
 
         if (!shouldAttempt)
         {
-            Console.WriteLine("[Smart Naming] Skipping - already successfully named");
             return;
         }
 
         // Don't regenerate if user manually changed the name
         if (IsManuallyNamed())
         {
-            Console.WriteLine("[Smart Naming] Skipping - test name appears manually set");
             hasAttemptedNaming = true;
             namingSucceeded = true; // Treat as success to prevent future attempts
             return;
@@ -1150,14 +1146,12 @@ else
                     namingSucceeded = true;
                     lastFailedNamingReason = null;
                     uploadStatus = $"Test renamed to: {suggestedName}";
-                    Console.WriteLine($"[Smart Naming] Success: {suggestedName}");
                 }
                 else
                 {
                     namingSucceeded = false;
                     lastFailedNamingReason = "AI could not generate a suitable name";
                     ShowToast("Could not auto-generate test name. You can edit it manually.", "warning");
-                    Console.WriteLine("[Smart Naming] Failed - no AI-generated name received");
                 }
             }
             else
@@ -1165,7 +1159,6 @@ else
                 namingSucceeded = false;
                 lastFailedNamingReason = "OCR timeout";
                 ShowToast("OCR is taking longer than expected. Test name not generated.", "warning");
-                Console.WriteLine("[Smart Naming] Failed - OCR timeout");
             }
         }
         catch (Exception ex)
@@ -1173,7 +1166,6 @@ else
             namingSucceeded = false;
             lastFailedNamingReason = ex.Message;
             ShowToast($"Error generating test name: {ex.Message}", "error");
-            Console.WriteLine($"[Smart Naming] Error: {ex.Message}");
         }
         finally
         {
@@ -1209,8 +1201,6 @@ else
                 var completedDocs = updatedTest.Documents.Count(d =>
                     d.Status == DocumentStatus.OcrCompleted ||
                     !string.IsNullOrWhiteSpace(d.ExtractedText));
-
-                Console.WriteLine($"[OCR Check {attempts}] {completedDocs}/{updatedTest.Documents.Count} ready");
 
                 if (completedDocs > 0)
                 {

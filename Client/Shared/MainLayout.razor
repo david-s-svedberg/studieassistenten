@@ -380,9 +380,9 @@
                 Navigation.NavigateTo($"/test/{newTest.Id}");
             }
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"[Error] Failed to create test: {ex.Message}");
+            // TODO: Show error message to user
         }
     }
 
