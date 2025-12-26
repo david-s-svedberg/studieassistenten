@@ -15,17 +15,20 @@ public class DocumentsController : BaseApiController
     private readonly IFileValidationService _fileValidationService;
     private readonly StudieAssistenten.Server.Infrastructure.Storage.IFileStorage _fileStorage;
     private readonly ILogger<DocumentsController> _logger;
+    private readonly IConfiguration _configuration;
 
     public DocumentsController(
         IFileUploadService fileUploadService,
         IFileValidationService fileValidationService,
         StudieAssistenten.Server.Infrastructure.Storage.IFileStorage fileStorage,
-        ILogger<DocumentsController> logger)
+        ILogger<DocumentsController> logger,
+        IConfiguration configuration)
     {
         _fileUploadService = fileUploadService;
         _fileValidationService = fileValidationService;
         _fileStorage = fileStorage;
         _logger = logger;
+        _configuration = configuration;
     }
 
     /// <summary>
@@ -43,11 +46,12 @@ public class DocumentsController : BaseApiController
                 return BadRequest("No file uploaded");
             }
 
-            // Validate file size (max 50MB)
-            const long maxFileSize = 50 * 1024 * 1024;
+            // Validate file size
+            var maxFileSize = _configuration.GetValue<long>("FileUpload:MaxFileSizeBytes", 52428800); // Default 50MB
             if (file.Length > maxFileSize)
             {
-                return BadRequest("File size exceeds maximum allowed size of 50MB");
+                var maxSizeMB = maxFileSize / (1024 * 1024);
+                return BadRequest($"File size exceeds maximum allowed size of {maxSizeMB}MB");
             }
 
             // Validate file type by Content-Type header
