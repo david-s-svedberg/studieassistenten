@@ -145,45 +145,14 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
         bool isAnswerOption = line.StartsWith("A)") || line.StartsWith("B)") ||
                               line.StartsWith("C)") || line.StartsWith("D)");
 
-        // Handle bold text (**text**)
-        if (line.Contains("**"))
+        // Render with markdown support
+        if (isAnswerOption)
         {
-            column.Item().PaddingLeft(isAnswerOption ? 20 : 0).Text(text =>
-            {
-                var parts = line.Split("**");
-                for (int i = 0; i < parts.Length; i++)
-                {
-                    if (i % 2 == 0)
-                    {
-                        // Regular text - make question text bold, answer options normal
-                        if (!isAnswerOption && !string.IsNullOrEmpty(parts[i]))
-                        {
-                            text.Span(parts[i]).Bold();
-                        }
-                        else
-                        {
-                            text.Span(parts[i]);
-                        }
-                    }
-                    else
-                    {
-                        // Text within ** markers - always bold
-                        text.Span(parts[i]).Bold();
-                    }
-                }
-            });
+            column.Item().PaddingLeft(20).Text(text => RenderMarkdownText(text, line));
         }
         else
         {
-            // No markdown - render as-is
-            if (isAnswerOption)
-            {
-                column.Item().PaddingLeft(20).Text(line);
-            }
-            else
-            {
-                column.Item().Text(line).Bold();
-            }
+            column.Item().Text(text => RenderMarkdownText(text, line));
         }
     }
 
@@ -207,28 +176,71 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
             return;
         }
 
-        // Handle bold text (**text**)
-        if (line.Contains("**"))
+        // Handle bullet points
+        if (line.StartsWith("- ") || line.StartsWith("* "))
         {
-            column.Item().DefaultTextStyle(x => x.FontSize(11)).Text(text =>
+            column.Item().DefaultTextStyle(x => x.FontSize(11)).Row(row =>
             {
-                var parts = line.Split("**");
-                for (int i = 0; i < parts.Length; i++)
-                {
-                    if (i % 2 == 0)
-                    {
-                        text.Span(parts[i]);
-                    }
-                    else
-                    {
-                        text.Span(parts[i]).Bold();
-                    }
-                }
+                row.ConstantItem(15).Text("•");
+                row.RelativeItem().Text(text => RenderMarkdownText(text, line.Substring(2).Trim()));
             });
+            return;
         }
-        else
+
+        // All other text with markdown support
+        column.Item().DefaultTextStyle(x => x.FontSize(11)).Text(text => RenderMarkdownText(text, line));
+    }
+
+    /// <summary>
+    /// Renders text with markdown formatting (bold, italic)
+    /// </summary>
+    void RenderMarkdownText(TextSpanDescriptor text, string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return;
+
+        // Handle bold (**text**) and italic (*text* or _text_)
+        int i = 0;
+        while (i < content.Length)
         {
-            column.Item().Text(line).FontSize(11);
+            // Check for bold (**text**)
+            if (i < content.Length - 1 && content[i] == '*' && content[i + 1] == '*')
+            {
+                int endIndex = content.IndexOf("**", i + 2);
+                if (endIndex > i + 2)
+                {
+                    // Found bold text
+                    text.Span(content.Substring(i + 2, endIndex - i - 2)).Bold();
+                    i = endIndex + 2;
+                    continue;
+                }
+            }
+            // Check for italic (*text* or _text_)
+            else if (content[i] == '*' || content[i] == '_')
+            {
+                char marker = content[i];
+                int endIndex = content.IndexOf(marker, i + 1);
+                if (endIndex > i + 1)
+                {
+                    // Found italic text
+                    text.Span(content.Substring(i + 1, endIndex - i - 1)).Italic();
+                    i = endIndex + 1;
+                    continue;
+                }
+            }
+
+            // Regular character - find next markdown marker or end
+            int nextMarker = content.Length;
+            int nextBold = content.IndexOf("**", i);
+            int nextItalicStar = content.IndexOf("*", i);
+            int nextItalicUnderscore = content.IndexOf("_", i);
+
+            if (nextBold >= 0) nextMarker = Math.Min(nextMarker, nextBold);
+            if (nextItalicStar >= 0 && nextItalicStar != nextBold) nextMarker = Math.Min(nextMarker, nextItalicStar);
+            if (nextItalicUnderscore >= 0) nextMarker = Math.Min(nextMarker, nextItalicUnderscore);
+
+            text.Span(content.Substring(i, nextMarker - i));
+            i = nextMarker;
         }
     }
 }

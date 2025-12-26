@@ -76,7 +76,13 @@ public class PracticeTestGenerator : BaseContentGenerator, IPracticeTestGenerato
         var systemPrompt = @"You are an educational assistant that creates practice tests from study materials.
 Create a practice test in Swedish with multiple choice questions, short answer questions, or essay questions.
 Make the questions challenging but fair, covering the key concepts from the material.
-Format your response as markdown with clear numbering and formatting.";
+
+Format your response using markdown:
+- Use **bold** for question numbers and important terms
+- Use numbered lists (1., 2., etc.) for questions
+- Use lettered lists (A), B), C), D)) for multiple choice options
+- Use ## headings for sections (Questions, Answer Key)
+- Use bullet points (-) in explanations when needed";
 
         var userPrompt = $@"Create a practice test with {questionCount} from the following study material:
 

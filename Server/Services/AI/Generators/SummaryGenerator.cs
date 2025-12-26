@@ -80,7 +80,13 @@ public class SummaryGenerator : BaseContentGenerator, ISummaryGenerator
 Create a clear, structured summary in Swedish that captures the key concepts and important details.
 {formatInstruction}
 {lengthInstruction}
-Focus on what students need to know for studying and test preparation.";
+Focus on what students need to know for studying and test preparation.
+
+Use markdown formatting:
+- Use **bold** for important terms and concepts
+- Use headings (##, ###) to organize sections
+- Use bullet points (-) for lists
+- Use numbered lists (1., 2., etc.) for sequential information";
 
         var userPrompt = $@"Create a summary of the following study material:
 
