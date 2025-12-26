@@ -52,10 +52,8 @@ public class ProcessingController : BaseApiController
                 .Include(d => d.Test)
                 .FirstOrDefaultAsync(d => d.Id == documentId);
 
-            if (document == null || document.Test == null || document.Test.UserId != userId)
-            {
-                return NotFound();
-            }
+            var ownershipCheck = VerifyDocumentOwnership(document, userId);
+            if (ownershipCheck != null) return ownershipCheck;
 
             // Start processing in background with cancellation token support
             var cancellationToken = _lifetime.ApplicationStopping;
@@ -124,10 +122,8 @@ public class ProcessingController : BaseApiController
                 .Include(d => d.Test)
                 .FirstOrDefaultAsync(d => d.Id == documentId);
 
-            if (document == null || document.Test == null || document.Test.UserId != userId)
-            {
-                return NotFound();
-            }
+            var ownershipCheck = VerifyDocumentOwnership(document, userId);
+            if (ownershipCheck != null) return ownershipCheck;
 
             var result = await _fileUploadService.UpdateExtractedTextAsync(documentId, request.Text, userId);
             if (!result)

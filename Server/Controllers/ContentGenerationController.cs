@@ -58,12 +58,13 @@ public class ContentGenerationController : BaseApiController
                 .Include(t => t.Documents)
                 .FirstOrDefaultAsync(t => t.Id == request.TestId);
 
-            if (test == null || test.UserId != userId)
+            var ownershipCheck = VerifyTestOwnership(test, userId);
+            if (ownershipCheck != null)
             {
-                return NotFound(new { message = "Test not found" });
+                return ownershipCheck;
             }
 
-            if (!test.Documents.Any())
+            if (!test!.Documents.Any())
             {
                 return BadRequest(new { message = "Test has no documents. Please upload documents first." });
             }
@@ -110,10 +111,8 @@ public class ContentGenerationController : BaseApiController
             .Include(d => d.Test)
             .FirstOrDefaultAsync(d => d.Id == documentId);
 
-        if (document == null || document.Test == null || document.Test.UserId != userId)
-        {
-            return NotFound();
-        }
+        var ownershipCheck = VerifyDocumentOwnership(document, userId);
+        if (ownershipCheck != null) return ownershipCheck;
 
         var contents = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
@@ -135,11 +134,9 @@ public class ContentGenerationController : BaseApiController
         }
 
         // Verify test ownership
-        var test = await _context.Tests.FirstOrDefaultAsync(t => t.Id == testId && t.UserId == userId);
-        if (test == null)
-        {
-            return NotFound();
-        }
+        var test = await _context.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        var ownershipCheck = VerifyTestOwnership(test, userId);
+        if (ownershipCheck != null) return ownershipCheck;
 
         // Get all generated content for this test
         var contents = await _context.GeneratedContents
@@ -169,10 +166,8 @@ public class ContentGenerationController : BaseApiController
                 .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null || content.Test?.UserId != userId)
-        {
-            return NotFound();
-        }
+        var ownershipCheck = VerifyContentOwnership(content, userId);
+        if (ownershipCheck != null) return ownershipCheck;
 
         return Ok(_mapper.Map<GeneratedContentDto>(content));
     }
@@ -194,13 +189,11 @@ public class ContentGenerationController : BaseApiController
                 .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null || content.Test?.UserId != userId)
-        {
-            return NotFound();
-        }
+        var ownershipCheck = VerifyContentOwnership(content, userId);
+        if (ownershipCheck != null) return ownershipCheck;
 
         // content is guaranteed non-null here due to check above
-        _context.GeneratedContents.Remove(content);
+        _context.GeneratedContents.Remove(content!);
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Deleted generated content {ContentId}", id);
@@ -225,17 +218,15 @@ public class ContentGenerationController : BaseApiController
                 .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        if (content == null || content.Test?.UserId != userId)
-        {
-            return NotFound();
-        }
+        var ownershipCheck = VerifyContentOwnership(content, userId);
+        if (ownershipCheck != null) return ownershipCheck;
 
         try
         {
             byte[] pdfBytes;
             string fileName;
 
-            switch (content.ProcessingType)
+            switch (content!.ProcessingType)
             {
                 case ProcessingType.Flashcards:
                     if (content.Flashcards == null || !content.Flashcards.Any())
