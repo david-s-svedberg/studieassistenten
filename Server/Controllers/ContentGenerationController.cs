@@ -42,7 +42,20 @@ public class ContentGenerationController : BaseApiController
         _logger = logger;
     }
 
+    /// <summary>
+    /// Generates AI-powered study content (flashcards, practice tests, or summaries) from test documents
+    /// </summary>
+    /// <param name="request">Content generation parameters including test ID and content type</param>
+    /// <returns>The generated content as a DTO with PDF and metadata</returns>
+    /// <response code="200">Content successfully generated</response>
+    /// <response code="400">Invalid request (missing documents or unprocessed documents)</response>
+    /// <response code="401">User not authenticated</response>
+    /// <response code="404">Test not found or user doesn't own the test</response>
     [HttpPost("generate")]
+    [ProducesResponseType(typeof(GeneratedContentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GenerateContent([FromBody] GenerateContentRequestDto request)
     {
         try
@@ -97,7 +110,18 @@ public class ContentGenerationController : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Gets all generated content for a specific document
+    /// </summary>
+    /// <param name="documentId">The ID of the document</param>
+    /// <returns>List of generated content for the document</returns>
+    /// <response code="200">Returns list of generated content</response>
+    /// <response code="401">User not authenticated</response>
+    /// <response code="404">Document not found or user doesn't own it</response>
     [HttpGet("document/{documentId}")]
+    [ProducesResponseType(typeof(List<GeneratedContentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetGeneratedContent(int documentId)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -124,7 +148,18 @@ public class ContentGenerationController : BaseApiController
         return Ok(result);
     }
 
+    /// <summary>
+    /// Gets all generated content for a specific test
+    /// </summary>
+    /// <param name="testId">The ID of the test</param>
+    /// <returns>List of all generated content (flashcards, tests, summaries) for the test</returns>
+    /// <response code="200">Returns list of generated content</response>
+    /// <response code="401">User not authenticated</response>
+    /// <response code="404">Test not found or user doesn't own it</response>
     [HttpGet("test/{testId}")]
+    [ProducesResponseType(typeof(List<GeneratedContentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTestGeneratedContent(int testId)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -149,7 +184,18 @@ public class ContentGenerationController : BaseApiController
         return Ok(result);
     }
 
+    /// <summary>
+    /// Gets a specific generated content item by ID
+    /// </summary>
+    /// <param name="id">The ID of the generated content</param>
+    /// <returns>The generated content details</returns>
+    /// <response code="200">Returns the generated content</response>
+    /// <response code="401">User not authenticated</response>
+    /// <response code="404">Content not found or user doesn't own it</response>
     [HttpGet("{id}")]
+    [ProducesResponseType(typeof(GeneratedContentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetContent(int id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -172,7 +218,18 @@ public class ContentGenerationController : BaseApiController
         return Ok(_mapper.Map<GeneratedContentDto>(content));
     }
 
+    /// <summary>
+    /// Deletes a generated content item
+    /// </summary>
+    /// <param name="id">The ID of the generated content to delete</param>
+    /// <returns>No content on success</returns>
+    /// <response code="204">Content successfully deleted</response>
+    /// <response code="401">User not authenticated</response>
+    /// <response code="404">Content not found or user doesn't own it</response>
     [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteContent(int id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -201,7 +258,22 @@ public class ContentGenerationController : BaseApiController
         return NoContent();
     }
 
+    /// <summary>
+    /// Downloads the PDF for a generated content item
+    /// </summary>
+    /// <param name="id">The ID of the generated content</param>
+    /// <returns>PDF file as binary content</returns>
+    /// <response code="200">Returns the PDF file</response>
+    /// <response code="400">Invalid content type or missing flashcards</response>
+    /// <response code="401">User not authenticated</response>
+    /// <response code="404">Content not found or user doesn't own it</response>
+    /// <response code="500">Error generating PDF</response>
     [HttpGet("{id}/pdf")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DownloadPdf(int id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
