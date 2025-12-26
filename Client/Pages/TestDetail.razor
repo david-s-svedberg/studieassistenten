@@ -92,8 +92,8 @@ else
             </div>
         }
 
-        @* 3. GENERATION BUTTONS (only if documents with OCR completed exist) *@
-        @if (test.DocumentCount > 0 && documents.Any(d => d.Status == DocumentStatus.OcrCompleted || !string.IsNullOrWhiteSpace(d.ExtractedText)))
+        @* 3. GENERATION BUTTONS (only if all documents have completed OCR) *@
+        @if (test.DocumentCount > 0 && documents.All(d => d.Status == DocumentStatus.OcrCompleted || !string.IsNullOrWhiteSpace(d.ExtractedText)))
         {
             @if (isGenerating)
             {
@@ -211,10 +211,24 @@ else
             else if (uploadMode == "files")
             {
                 <div class="upload-area">
+                    <p class="text-muted mb-3">PDF, Images, Text files (Max 60MB each)</p>
+
+                    <div class="file-input-wrapper">
+                        <InputFile id="fileInput"
+                                  OnChange="@HandleFileSelected"
+                                  class="file-input"
+                                  accept="image/*,.pdf,.jpg,.jpeg,.png,.txt,.docx"
+                                  multiple />
+                        <label for="fileInput" class="btn btn-primary add-content-btn">
+                            <i class="bi bi-plus-circle me-2"></i>
+                            Add Content
+                        </label>
+                    </div>
+
                     @* Show queued files if any *@
                     @if (selectedFiles.Any())
                     {
-                        <div class="queued-files-section mb-3">
+                        <div class="queued-files-section mt-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <h5 class="mb-0">Queued Files (@selectedFiles.Count)</h5>
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="ClearQueue">
@@ -241,57 +255,6 @@ else
                             <button class="btn btn-success w-100 mt-3" @onclick="UploadFiles">
                                 <i class="bi bi-cloud-upload me-2"></i>Upload & Process All (@selectedFiles.Count files)
                             </button>
-                        </div>
-                    }
-
-                    <div class="file-input-wrapper">
-                        <InputFile id="fileInput"
-                                  OnChange="@HandleFileSelected"
-                                  class="file-input"
-                                  accept=".pdf,.jpg,.jpeg,.png,.txt,.docx"
-                                  multiple />
-                        <InputFile id="cameraInput"
-                                  OnChange="@HandleFileSelected"
-                                  class="file-input"
-                                  accept="image/*"
-                                  capture="environment"
-                                  multiple />
-                        <label for="fileInput" class="file-input-label">
-                            <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
-                            <div class="mt-3">
-                                <strong>@(selectedFiles.Any() ? "Add more files" : "Click to upload")</strong> or drag and drop
-                            </div>
-                            <div class="text-muted mt-2">
-                                PDF, Images, Text files (Max 60MB each)
-                            </div>
-                        </label>
-
-                        @* Dedicated Camera Button for Mobile *@
-                        <div class="camera-button-wrapper">
-                            <label for="cameraInput" class="btn btn-primary camera-btn">
-                                <i class="bi bi-camera-fill me-2"></i>
-                                Take Photo
-                            </label>
-                        </div>
-                    </div>
-
-                    @if (selectedFiles.Any())
-                    {
-                        <div class="selected-files mt-4">
-                            <h5>Selected Files (@selectedFiles.Count)</h5>
-                            <div class="file-list">
-                                @foreach (var file in selectedFiles)
-                                {
-                                    <div class="file-item">
-                                        <i class="bi bi-file-earmark"></i>
-                                        <span class="file-name">@file.Name</span>
-                                        <span class="file-size">@FormatFileSize(file.Size)</span>
-                                        <button class="btn-remove" @onclick="() => RemoveFile(file)">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                    </div>
-                                }
-                            </div>
                         </div>
                     }
 
@@ -500,23 +463,7 @@ else
         font-weight: 600;
     }
 
-    .camera-button-wrapper {
-        display: none;
-        margin-top: 1.5rem;
-        text-align: center;
-    }
-
-    .camera-btn {
-        padding: 0.75rem 2rem;
-        font-size: 1.1rem;
-        border-radius: 8px;
-    }
-
     @@media (max-width: 768px) {
-        .camera-button-wrapper {
-            display: block;
-        }
-
         .content-tabs {
             flex-direction: column;
             gap: 0;
@@ -597,54 +544,26 @@ else
 
     .upload-area {
         background: #444654;
-        border: 2px dashed #565869;
         border-radius: 1rem;
         padding: 2rem;
-        min-height: 200px;
     }
 
     .file-input-wrapper {
         position: relative;
+        display: inline-block;
     }
 
     .file-input {
         position: absolute;
         opacity: 0;
-        width: 100%;
-        height: 100%;
+        width: 0;
+        height: 0;
+    }
+
+    .add-content-btn {
         cursor: pointer;
-    }
-
-    .file-input-label {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 3rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        color: #8e8ea0;
-    }
-
-    .file-input-label:hover {
-        color: #ececf1;
-    }
-
-    .selected-files {
-        background: #343541;
-        border-radius: 0.5rem;
-        padding: 1rem;
-    }
-
-    .selected-files h5 {
-        color: #ececf1;
-        margin-bottom: 1rem;
-    }
-
-    .file-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+        padding: 0.75rem 2rem;
+        font-size: 1rem;
     }
 
     .queued-files-section {
@@ -716,29 +635,6 @@ else
     .file-size-small {
         font-size: 0.65rem;
         color: #8e8ea0;
-    }
-
-    .file-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        background: #444654;
-        border-radius: 0.5rem;
-        color: #ececf1;
-    }
-
-    .btn-remove {
-        background: none;
-        border: none;
-        color: #ef4444;
-        cursor: pointer;
-        padding: 0.25rem;
-        font-size: 1.25rem;
-    }
-
-    .btn-remove:hover {
-        color: #dc2626;
     }
 
     /* Animated loading dots */
