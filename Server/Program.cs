@@ -159,7 +159,7 @@ builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.
 builder.Services.AddSingleton<StudieAssistenten.Server.Infrastructure.Storage.IFileStorage, StudieAssistenten.Server.Infrastructure.Storage.LocalFileStorage>();
 
 // Register application services
-builder.Services.AddScoped<IEmailWhitelistService, EmailWhitelistService>();
+builder.Services.AddSingleton<IEmailWhitelistService, EmailWhitelistService>();
 builder.Services.AddScoped<ITestService, TestService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IFileValidationService, FileValidationService>();

@@ -39,6 +39,9 @@ public class DocumentService : IDocumentService
     {
         try
         {
+            _logger.LogInformation("Uploading document: {FileName} ({FileSize} bytes) to test {TestId}",
+                fileName, fileSize, testId);
+
             using var content = new MultipartFormDataContent();
 
             var streamContent = new StreamContent(fileStream);
@@ -54,7 +57,9 @@ public class DocumentService : IDocumentService
 
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<DocumentDto>();
+                var document = await response.Content.ReadFromJsonAsync<DocumentDto>();
+                _logger.LogInformation("Document uploaded successfully: {DocumentId}", document?.Id);
+                return document;
             }
             else
             {

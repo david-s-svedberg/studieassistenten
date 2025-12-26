@@ -11,6 +11,9 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // Configure client-side logging
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
+// Filter Blazor framework logs to reduce WASM noise
+builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.Extensions", LogLevel.Warning);
 
 // Configure HttpClient
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
