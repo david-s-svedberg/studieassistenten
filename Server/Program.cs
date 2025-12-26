@@ -194,6 +194,14 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
+// Configure HSTS (HTTP Strict Transport Security)
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365); // 1 year (recommended for production)
+    options.IncludeSubDomains = true;        // Apply to all subdomains
+    options.Preload = true;                  // Enable HSTS preload list submission
+});
+
 // Configure CORS (only needed in Development or when API/Client are on different origins)
 var corsEnabled = builder.Configuration.GetValue<bool>("Cors:EnableCors");
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
@@ -221,11 +229,17 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
 }
 
+// HTTPS enforcement - always redirect HTTP to HTTPS
 app.UseHttpsRedirection();
+
+// HSTS (HTTP Strict Transport Security) - enforce HTTPS on client side
+// Only send in production to avoid issues with localhost development
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
 
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
@@ -254,7 +268,7 @@ app.Use(async (context, next) =>
     // Adjusted for Blazor WebAssembly requirements
     context.Response.Headers.Append("Content-Security-Policy",
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-AA99+JSnoA8VDU0S18bLsAs2mB/pE6UorFNrO+yEj0E='; " +  // Required for Blazor WASM + inline PWA script
+        "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-AA99+JSnoA8VDU0S18bLsAs2mB/pE6UorFNrO+yEj0E=' 'sha256-rix1Vs83ItBtb257nN0MhMQIyfZxlSmE12KoEoUV6po=' 'sha256-yei5Fza+Eyx4G0smvN0xBqEesIKumz6RSyGsU3FJowI='; " +  // Required for Blazor WASM + inline scripts
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +  // Required for Blazor inline styles + Bootstrap Icons CDN
         "img-src 'self' data: https:; " +
         "font-src 'self' https://cdn.jsdelivr.net; " +            // Bootstrap Icons fonts from CDN

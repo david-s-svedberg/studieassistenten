@@ -253,11 +253,12 @@ Configures cross-origin request handling for the API.
 "Cors": {
   "EnableCors": true,
   "AllowedOrigins": [
-    "https://localhost:7247",
-    "http://localhost:5059"
+    "https://localhost:7247"
   ]
 }
 ```
+
+**Note:** Only HTTPS origins are supported. The application enforces HTTPS-only connections.
 
 **Production with Separate Domains:**
 ```json
@@ -386,6 +387,63 @@ Specifies which hostnames can serve the application.
 ```json
 "AllowedHosts": "studieassistenten.com;www.studieassistenten.com"
 ```
+
+---
+
+### HTTPS Enforcement & Security
+
+The application is configured to **enforce HTTPS-only** connections with multiple layers of security:
+
+#### HTTPS Redirection
+- All HTTP requests are automatically redirected to HTTPS
+- Configured in `Program.cs` via `app.UseHttpsRedirection()`
+
+#### HSTS (HTTP Strict Transport Security)
+Automatically enabled in **production environments only** with the following settings:
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| Max-Age | 365 days (1 year) | How long browsers remember to only use HTTPS |
+| Include Subdomains | ✅ Enabled | Applies HSTS to all subdomains |
+| Preload | ✅ Enabled | Eligible for HSTS preload list |
+
+**Why HSTS?**
+- Prevents protocol downgrade attacks
+- Eliminates HTTP redirect latency (browser always uses HTTPS)
+- Protects against cookie hijacking
+- Required for HSTS preload list submission
+
+**HSTS Preload List:**
+To submit your domain to the [HSTS Preload List](https://hstspreload.org/):
+1. Ensure your domain serves HSTS header with `max-age=31536000`, `includeSubDomains`, and `preload`
+2. Redirect all HTTP traffic to HTTPS (including www subdomain)
+3. Serve HSTS header on base domain and all subdomains
+4. Submit your domain at https://hstspreload.org/
+
+**Development Considerations:**
+- HSTS is **disabled in Development** to avoid localhost certificate issues
+- HTTPS redirection still works in Development
+- Use self-signed certificates for local HTTPS testing
+
+#### Content Security Policy (CSP)
+The application includes `upgrade-insecure-requests` directive in CSP, which:
+- Automatically upgrades HTTP requests to HTTPS
+- Applies to all resource loads (scripts, styles, images, etc.)
+- Works even if a resource URL is accidentally specified as HTTP
+
+#### Security Headers
+Additional HTTPS-related security headers:
+- **X-Content-Type-Options**: `nosniff` (prevents MIME-sniffing attacks)
+- **X-Frame-Options**: `SAMEORIGIN` (prevents clickjacking)
+- **Referrer-Policy**: `strict-origin-when-cross-origin` (protects referrer information)
+
+**Production Deployment Checklist:**
+- ✅ Use valid TLS/SSL certificate (Let's Encrypt, commercial CA)
+- ✅ Configure TLS 1.2+ only (disable older protocols)
+- ✅ Use strong cipher suites (disable weak ciphers)
+- ✅ Test your HTTPS configuration with [SSL Labs](https://www.ssllabs.com/ssltest/)
+- ✅ Consider submitting to HSTS preload list after stable deployment
+- ✅ Monitor certificate expiration and renewal
 
 ---
 
