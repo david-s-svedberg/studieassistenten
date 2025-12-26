@@ -15,7 +15,7 @@
             <button class="hamburger-btn" @onclick="ToggleMobileMenu">
                 <i class="bi bi-list"></i>
             </button>
-            <h1 class="mobile-app-title">StudieAssistenten</h1>
+            <h1 class="mobile-app-title" @onclick="NavigateToHome">StudieAssistenten</h1>
         </div>
 
         @* Mobile Menu Overlay *@
@@ -157,6 +157,12 @@
         color: #fff;
         margin: 0;
         margin-left: 16px;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+
+    .mobile-app-title:hover {
+        opacity: 0.8;
     }
 
     /* Mobile Overlay */
@@ -202,6 +208,11 @@
 
         .main-content {
             margin-left: 0;
+        }
+
+        /* Hide sidebar title on mobile (title is in top bar instead) */
+        .app-title {
+            display: none;
         }
     }
 
