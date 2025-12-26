@@ -118,7 +118,7 @@ public class SummaryPdfGenerationService : BasePdfGenerationService, ISummaryPdf
     /// <summary>
     /// Renders text with markdown formatting (bold, italic)
     /// </summary>
-    void RenderMarkdownText(TextSpanDescriptor text, string content)
+    void RenderMarkdownText(TextDescriptor text, string content)
     {
         if (string.IsNullOrWhiteSpace(content))
             return;
