@@ -243,9 +243,12 @@ public class SummaryPdfGenerationService : BasePdfGenerationService, ISummaryPdf
             int nextItalicStar = content.IndexOf("*", i);
             int nextItalicUnderscore = content.IndexOf("_", i);
 
-            if (nextBold >= 0) nextMarker = Math.Min(nextMarker, nextBold);
-            if (nextItalicStar >= 0 && nextItalicStar != nextBold) nextMarker = Math.Min(nextMarker, nextItalicStar);
-            if (nextItalicUnderscore >= 0) nextMarker = Math.Min(nextMarker, nextItalicUnderscore);
+            if (nextBold >= 0 && nextBold > i) nextMarker = Math.Min(nextMarker, nextBold);
+            if (nextItalicStar >= 0 && nextItalicStar > i && nextItalicStar != nextBold) nextMarker = Math.Min(nextMarker, nextItalicStar);
+            if (nextItalicUnderscore >= 0 && nextItalicUnderscore > i) nextMarker = Math.Min(nextMarker, nextItalicUnderscore);
+
+            // Ensure we advance at least 1 character to prevent infinite loops
+            if (nextMarker == i) nextMarker = i + 1;
 
             text.Span(content.Substring(i, nextMarker - i));
             i = nextMarker;

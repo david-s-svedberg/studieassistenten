@@ -139,9 +139,30 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
         {
             column.Spacing(5);
 
-            foreach (var line in questionLines)
+            int i = 0;
+            while (i < questionLines.Count)
             {
-                RenderMarkdownLine(column, line.Trim());
+                var line = questionLines[i].Trim();
+
+                // Check if this is a table
+                if (line.Contains("|") && i + 1 < questionLines.Count &&
+                    questionLines[i + 1].Trim().StartsWith("|") && questionLines[i + 1].Contains("---"))
+                {
+                    var tableLines = new List<string> { line, questionLines[i + 1] };
+                    i += 2;
+
+                    while (i < questionLines.Count && questionLines[i].Trim().StartsWith("|"))
+                    {
+                        tableLines.Add(questionLines[i].Trim());
+                        i++;
+                    }
+
+                    column.Item().Element(container => RenderMarkdownTable(container, tableLines));
+                    continue;
+                }
+
+                RenderMarkdownLine(column, line);
+                i++;
             }
         });
     }
@@ -316,9 +337,12 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
             int nextItalicStar = content.IndexOf("*", i);
             int nextItalicUnderscore = content.IndexOf("_", i);
 
-            if (nextBold >= 0) nextMarker = Math.Min(nextMarker, nextBold);
-            if (nextItalicStar >= 0 && nextItalicStar != nextBold) nextMarker = Math.Min(nextMarker, nextItalicStar);
-            if (nextItalicUnderscore >= 0) nextMarker = Math.Min(nextMarker, nextItalicUnderscore);
+            if (nextBold >= 0 && nextBold > i) nextMarker = Math.Min(nextMarker, nextBold);
+            if (nextItalicStar >= 0 && nextItalicStar > i && nextItalicStar != nextBold) nextMarker = Math.Min(nextMarker, nextItalicStar);
+            if (nextItalicUnderscore >= 0 && nextItalicUnderscore > i) nextMarker = Math.Min(nextMarker, nextItalicUnderscore);
+
+            // Ensure we advance at least 1 character to prevent infinite loops
+            if (nextMarker == i) nextMarker = i + 1;
 
             text.Span(content.Substring(i, nextMarker - i));
             i = nextMarker;

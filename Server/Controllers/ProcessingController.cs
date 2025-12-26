@@ -14,20 +14,20 @@ namespace StudieAssistenten.Server.Controllers;
 public class ProcessingController : BaseApiController
 {
     private readonly ApplicationDbContext _context;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IFileUploadService _fileUploadService;
     private readonly ILogger<ProcessingController> _logger;
     private readonly IHostApplicationLifetime _lifetime;
 
     public ProcessingController(
         ApplicationDbContext context,
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory serviceScopeFactory,
         IFileUploadService fileUploadService,
         ILogger<ProcessingController> logger,
         IHostApplicationLifetime lifetime)
     {
         _context = context;
-        _serviceProvider = serviceProvider;
+        _serviceScopeFactory = serviceScopeFactory;
         _fileUploadService = fileUploadService;
         _logger = logger;
         _lifetime = lifetime;
@@ -67,7 +67,7 @@ public class ProcessingController : BaseApiController
                 try
                 {
                     // Create a new scope for background work to get fresh DbContext
-                    using var scope = _serviceProvider.CreateScope();
+                    using var scope = _serviceScopeFactory.CreateScope();
                     _logger.LogInformation("Service scope created for document {DocumentId}", documentId);
 
                     var processingService = scope.ServiceProvider.GetRequiredService<IDocumentProcessingService>();

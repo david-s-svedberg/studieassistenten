@@ -211,6 +211,39 @@ else
             else if (uploadMode == "files")
             {
                 <div class="upload-area">
+                    @* Show queued files if any *@
+                    @if (selectedFiles.Any())
+                    {
+                        <div class="queued-files-section mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0">Queued Files (@selectedFiles.Count)</h5>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="ClearQueue">
+                                    <i class="bi bi-x-circle me-1"></i>Clear All
+                                </button>
+                            </div>
+                            <div class="queued-files-grid">
+                                @foreach (var file in selectedFiles)
+                                {
+                                    <div class="queued-file-card">
+                                        <button class="btn-remove-file" @onclick="() => RemoveFile(file)" title="Remove">
+                                            <i class="bi bi-x-circle-fill"></i>
+                                        </button>
+                                        <div class="file-preview">
+                                            <i class="bi @GetFileIcon(file.Name)"></i>
+                                        </div>
+                                        <div class="file-details">
+                                            <div class="file-name-small">@file.Name</div>
+                                            <div class="file-size-small">@FormatFileSize(file.Size)</div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                            <button class="btn btn-success w-100 mt-3" @onclick="UploadFiles">
+                                <i class="bi bi-cloud-upload me-2"></i>Upload & Process All (@selectedFiles.Count files)
+                            </button>
+                        </div>
+                    }
+
                     <div class="file-input-wrapper">
                         <InputFile id="fileInput"
                                   OnChange="@HandleFileSelected"
@@ -226,7 +259,7 @@ else
                         <label for="fileInput" class="file-input-label">
                             <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
                             <div class="mt-3">
-                                <strong>Click to upload</strong> or drag and drop
+                                <strong>@(selectedFiles.Any() ? "Add more files" : "Click to upload")</strong> or drag and drop
                             </div>
                             <div class="text-muted mt-2">
                                 PDF, Images, Text files (Max 60MB each)
@@ -614,6 +647,77 @@ else
         gap: 0.5rem;
     }
 
+    .queued-files-section {
+        background: #343541;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .queued-files-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .queued-file-card {
+        position: relative;
+        background: #444654;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        text-align: center;
+        transition: all 0.2s;
+    }
+
+    .queued-file-card:hover {
+        background: #4f5060;
+    }
+
+    .btn-remove-file {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #ef4444;
+        border: 2px solid #343541;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: white;
+        font-size: 16px;
+        transition: all 0.2s;
+        padding: 0;
+    }
+
+    .btn-remove-file:hover {
+        background: #dc2626;
+        transform: scale(1.1);
+    }
+
+    .file-preview {
+        font-size: 2.5rem;
+        color: #8e8ea0;
+        margin-bottom: 0.5rem;
+    }
+
+    .file-name-small {
+        font-size: 0.75rem;
+        color: #ececf1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-bottom: 0.25rem;
+    }
+
+    .file-size-small {
+        font-size: 0.65rem;
+        color: #8e8ea0;
+    }
+
     .file-item {
         display: flex;
         align-items: center;
@@ -671,11 +775,21 @@ else
 
     // Upload state
     private List<IBrowserFile> selectedFiles = new();
+    private List<QueuedFileData> queuedFileData = new(); // Store actual file data
     private bool isUploading = false;
     private bool isProcessingOcr = false;
     private string uploadStatus = "";
     private string? uploadErrorMessage;
     private string uploadMode = "files"; // "files" or "text"
+
+    // Helper class to store file data in memory
+    private class QueuedFileData
+    {
+        public MemoryStream Stream { get; set; } = null!;
+        public string Name { get; set; } = "";
+        public string ContentType { get; set; } = "";
+        public long Size { get; set; }
+    }
 
     // Text input state
     private string textContent = "";
@@ -955,85 +1069,124 @@ else
     // Upload methods
     private async void HandleFileSelected(InputFileChangeEventArgs e)
     {
-        selectedFiles.Clear();
-        foreach (var file in e.GetMultipleFiles(10)) // Max 10 files
-        {
-            selectedFiles.Add(file);
-        }
-        uploadErrorMessage = null;
-        StateHasChanged();
-
-        // AUTO-UPLOAD: Trigger upload immediately
-        if (selectedFiles.Any())
-        {
-            await UploadFiles();
-        }
-    }
-
-    private void RemoveFile(IBrowserFile file)
-    {
-        selectedFiles.Remove(file);
-    }
-
-    private async Task UploadFiles()
-    {
-        if (!selectedFiles.Any() || test == null) return;
-
-        // CRITICAL: Read all files into memory FIRST
         const long maxFileSize = 60 * 1024 * 1024; // 60 MB
-        var fileData = new List<(MemoryStream stream, string name, string contentType, long size)>();
+        uploadErrorMessage = null;
 
         try
         {
-            // Read files while InputFile still in DOM
-            foreach (var file in selectedFiles)
+            // Read file data immediately before component re-renders
+            foreach (var file in e.GetMultipleFiles(20)) // Max 20 files
             {
+                // Avoid duplicates
+                if (selectedFiles.Any(f => f.Name == file.Name && f.Size == file.Size))
+                    continue;
+
+                // Read file data into memory immediately
                 using var browserStream = file.OpenReadStream(maxFileSize);
                 var memoryStream = new MemoryStream();
                 await browserStream.CopyToAsync(memoryStream);
                 memoryStream.Position = 0;
 
-                fileData.Add((memoryStream, file.Name, file.ContentType, file.Size));
+                // Store both the file reference (for UI) and the data (for upload)
+                selectedFiles.Add(file);
+                queuedFileData.Add(new QueuedFileData
+                {
+                    Stream = memoryStream,
+                    Name = file.Name,
+                    ContentType = file.ContentType,
+                    Size = file.Size
+                });
             }
+        }
+        catch (Exception ex)
+        {
+            uploadErrorMessage = $"Error reading files: {ex.Message}";
+        }
 
-            // NOW set isUploading (which hides InputFile)
+        StateHasChanged();
+    }
+
+    private void RemoveFile(IBrowserFile file)
+    {
+        var index = selectedFiles.IndexOf(file);
+        if (index >= 0)
+        {
+            selectedFiles.RemoveAt(index);
+
+            // Also remove the corresponding queued data and dispose stream
+            if (index < queuedFileData.Count)
+            {
+                queuedFileData[index].Stream.Dispose();
+                queuedFileData.RemoveAt(index);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void ClearQueue()
+    {
+        selectedFiles.Clear();
+
+        // Dispose all streams
+        foreach (var data in queuedFileData)
+        {
+            data.Stream.Dispose();
+        }
+        queuedFileData.Clear();
+
+        uploadErrorMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task UploadFiles()
+    {
+        if (!queuedFileData.Any() || test == null) return;
+
+        try
+        {
             isUploading = true;
             StateHasChanged();
             uploadErrorMessage = null;
 
-            // Upload each file
-            for (int i = 0; i < fileData.Count; i++)
+            // Upload each queued file
+            for (int i = 0; i < queuedFileData.Count; i++)
             {
-                var (stream, name, contentType, size) = fileData[i];
-                uploadStatus = $"Uploading {i + 1} of {fileData.Count}: {name}";
+                var fileData = queuedFileData[i];
+                uploadStatus = $"Uploading {i + 1} of {queuedFileData.Count}: {fileData.Name}";
                 StateHasChanged();
 
-                using (stream)
+                // Reset stream position before upload
+                fileData.Stream.Position = 0;
+
+                var uploadedDoc = await DocumentService.UploadDocumentAsync(
+                    fileData.Stream, fileData.Name, fileData.ContentType, fileData.Size, test.Id);
+
+                if (uploadedDoc != null)
                 {
-                    var uploadedDoc = await DocumentService.UploadDocumentAsync(
-                        stream, name, contentType, size, test.Id);
-
-                    if (uploadedDoc != null)
+                    // Auto-trigger OCR if needed
+                    if (uploadedDoc.Status == DocumentStatus.Uploaded &&
+                        (uploadedDoc.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
+                         uploadedDoc.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                         uploadedDoc.FileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                         uploadedDoc.FileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
                     {
-                        // Auto-trigger OCR if needed
-                        if (uploadedDoc.Status == DocumentStatus.Uploaded &&
-                            (uploadedDoc.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
-                             uploadedDoc.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                             uploadedDoc.FileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                             uploadedDoc.FileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
-                        {
-                            isProcessingOcr = true;
-                            uploadStatus = $"Processing OCR for {name}...";
-                            StateHasChanged();
+                        isProcessingOcr = true;
+                        uploadStatus = $"Processing OCR for {fileData.Name}...";
+                        StateHasChanged();
 
-                            await DocumentService.TriggerOcrProcessingAsync(uploadedDoc.Id);
-                            await Task.Delay(2000);
-                        }
+                        await DocumentService.TriggerOcrProcessingAsync(uploadedDoc.Id);
+                        await Task.Delay(2000);
                     }
                 }
             }
 
+            // Cleanup
             selectedFiles.Clear();
+            foreach (var data in queuedFileData)
+            {
+                data.Stream.Dispose();
+            }
+            queuedFileData.Clear();
             isProcessingOcr = false;
 
             // Reload test to get new documents
