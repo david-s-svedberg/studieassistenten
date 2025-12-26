@@ -854,15 +854,30 @@ else
             if (result != null)
             {
                 // Open PDF in new tab (using helper to avoid popup blocker)
-                await JS.InvokeVoidAsync("openInNewTab", ContentService.GetPdfUrl(result.Id));
+                try
+                {
+                    await JS.InvokeVoidAsync("openInNewTab", ContentService.GetPdfUrl(result.Id));
+                }
+                catch (Exception ex)
+                {
+                    // Log but don't fail - PDF opening is not critical
+                    Console.WriteLine($"Failed to open PDF: {ex.Message}");
+                }
 
                 // Reload content list
                 await LoadGeneratedContent();
+
+                // Show success toast
+                ToastService.ShowSuccess($"{type} generated successfully!");
+            }
+            else
+            {
+                ToastService.ShowError("Failed to generate content. Please try again.");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            ToastService.ShowError("Failed to generate content. Please try again.");
+            ToastService.ShowError($"Failed to generate content: {ex.Message}");
         }
         finally
         {
