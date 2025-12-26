@@ -106,12 +106,12 @@ public class ContentGenerationController : BaseApiController
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "Invalid operation during content generation");
-            return BadRequest(new { message = ex.Message });
+            return BadRequestError(ex.Message, errorCode: "INVALID_OPERATION");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating content for test {TestId}", request.TestId);
-            return StatusCode(500, new { message = "An error occurred while generating content" });
+            return InternalServerError("An error occurred while generating content", errorCode: "CONTENT_GENERATION_ERROR");
         }
     }
 
@@ -335,7 +335,7 @@ public class ContentGenerationController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating PDF for content {ContentId}", id);
-            return StatusCode(500, new { message = "Error generating PDF" });
+            return InternalServerError("Error generating PDF", errorCode: "PDF_GENERATION_ERROR");
         }
     }
 

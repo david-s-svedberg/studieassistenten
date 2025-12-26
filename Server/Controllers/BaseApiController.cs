@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Models;
 using System.Security.Claims;
 
@@ -72,5 +73,31 @@ public abstract class BaseApiController : ControllerBase
             return NotFound();
         }
         return null;
+    }
+
+    /// <summary>
+    /// Returns a standardized 500 Internal Server Error response
+    /// </summary>
+    /// <param name="message">User-friendly error message</param>
+    /// <param name="detail">Detailed error information (optional, only in development)</param>
+    /// <param name="errorCode">Optional error code for client handling</param>
+    /// <returns>ObjectResult with 500 status code and ErrorResponseDto</returns>
+    protected ObjectResult InternalServerError(string message, string? detail = null, string? errorCode = null)
+    {
+        var error = new ErrorResponseDto(message, detail, errorCode);
+        return StatusCode(StatusCodes.Status500InternalServerError, error);
+    }
+
+    /// <summary>
+    /// Returns a standardized 400 Bad Request response
+    /// </summary>
+    /// <param name="message">User-friendly error message</param>
+    /// <param name="detail">Detailed error information (optional)</param>
+    /// <param name="errorCode">Optional error code for client handling</param>
+    /// <returns>BadRequestObjectResult with ErrorResponseDto</returns>
+    protected BadRequestObjectResult BadRequestError(string message, string? detail = null, string? errorCode = null)
+    {
+        var error = new ErrorResponseDto(message, detail, errorCode);
+        return BadRequest(error);
     }
 }
