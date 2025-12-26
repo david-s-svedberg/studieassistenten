@@ -10,6 +10,7 @@ public interface ITestService
     Task<TestDto?> CreateTestAsync(CreateTestRequest request, string userId);
     Task<List<TestDto>> GetAllTestsAsync(string userId);
     Task<List<TestListDto>> GetAllTestsListAsync(string userId);
+    Task<PagedResultDto<TestListDto>> GetAllTestsListPagedAsync(string userId, int pageNumber, int pageSize);
     Task<TestDto?> GetTestAsync(int testId, string? userId = null);
     Task<TestDetailDto?> GetTestDetailAsync(int testId, string userId);
     Task<bool> UpdateTestAsync(int testId, CreateTestRequest request, string userId);
@@ -60,6 +61,22 @@ public class TestService : ITestService
     {
         var tests = await _repository.GetAllWithDocumentsAsync(userId);
         return _mapper.Map<List<TestListDto>>(tests);
+    }
+
+    public async Task<PagedResultDto<TestListDto>> GetAllTestsListPagedAsync(string userId, int pageNumber, int pageSize)
+    {
+        var allTests = await _repository.GetAllWithDocumentsAsync(userId);
+        var totalCount = allTests.Count;
+
+        var pagedTests = allTests
+            .OrderByDescending(t => t.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        var items = _mapper.Map<List<TestListDto>>(pagedTests);
+
+        return new PagedResultDto<TestListDto>(items, totalCount, pageNumber, pageSize);
     }
 
     public async Task<TestDto?> GetTestAsync(int testId, string? userId = null)

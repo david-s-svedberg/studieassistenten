@@ -190,6 +190,69 @@ public class ContentGenerationController : BaseApiController
     }
 
     /// <summary>
+    /// Gets generated content for a specific test with pagination
+    /// </summary>
+    /// <param name="testId">The ID of the test</param>
+    /// <param name="pageNumber">Page number (1-based)</param>
+    /// <param name="pageSize">Number of items per page (1-100)</param>
+    /// <returns>Paginated list of generated content</returns>
+    /// <response code="200">Returns paginated generated content</response>
+    /// <response code="400">Invalid pagination parameters</response>
+    /// <response code="401">User not authenticated</response>
+    /// <response code="404">Test not found or user doesn't own it</response>
+    [HttpGet("test/{testId}/paged")]
+    [ProducesResponseType(typeof(PagedResultDto<GeneratedContentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTestGeneratedContentPaged(
+        int testId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        // Validate pagination parameters
+        if (pageNumber < 1)
+        {
+            return BadRequestError("Page number must be at least 1");
+        }
+
+        if (pageSize < 1 || pageSize > 100)
+        {
+            return BadRequestError("Page size must be between 1 and 100");
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        // Verify test ownership
+        var test = await _context.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        var ownershipCheck = VerifyTestOwnership(test, userId);
+        if (ownershipCheck != null) return ownershipCheck;
+
+        // Get total count
+        var totalCount = await _context.GeneratedContents
+            .Where(gc => gc.TestId == testId)
+            .CountAsync();
+
+        // Get paginated content
+        var contents = await _context.GeneratedContents
+            .Include(gc => gc.Flashcards)
+            .Where(gc => gc.TestId == testId)
+            .OrderByDescending(gc => gc.GeneratedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var items = _mapper.Map<List<GeneratedContentDto>>(contents);
+        var result = new PagedResultDto<GeneratedContentDto>(items, totalCount, pageNumber, pageSize);
+
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Gets a specific generated content item by ID
     /// </summary>
     /// <param name="id">The ID of the generated content</param>

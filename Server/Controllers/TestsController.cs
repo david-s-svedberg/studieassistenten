@@ -78,6 +78,48 @@ public class TestsController : BaseApiController
     }
 
     /// <summary>
+    /// Get all tests with pagination (lightweight list view)
+    /// </summary>
+    /// <param name="pageNumber">Page number (1-based)</param>
+    /// <param name="pageSize">Number of items per page (1-100)</param>
+    /// <returns>Paginated list of tests</returns>
+    /// <response code="200">Returns paginated test list</response>
+    /// <response code="400">Invalid pagination parameters</response>
+    /// <response code="401">User not authenticated</response>
+    [HttpGet("paged")]
+    [ProducesResponseType(typeof(PagedResultDto<TestListDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<PagedResultDto<TestListDto>>> GetAllPaged(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        try
+        {
+            // Validate pagination parameters
+            if (pageNumber < 1)
+            {
+                return BadRequestError("Page number must be at least 1");
+            }
+
+            if (pageSize < 1 || pageSize > 100)
+            {
+                return BadRequestError("Page size must be between 1 and 100");
+            }
+
+            var userId = GetCurrentUserId();
+
+            var result = await _testService.GetAllTestsListPagedAsync(userId, pageNumber, pageSize);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving paged tests");
+            return InternalServerError("An error occurred while retrieving tests", errorCode: "TESTS_RETRIEVAL_ERROR");
+        }
+    }
+
+    /// <summary>
     /// Get a specific test (detailed view with documents)
     /// </summary>
     [HttpGet("{id}")]
