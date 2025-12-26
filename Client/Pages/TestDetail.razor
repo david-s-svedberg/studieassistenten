@@ -853,8 +853,8 @@ else
 
             if (result != null)
             {
-                // Open PDF in new tab
-                await JS.InvokeVoidAsync("open", ContentService.GetPdfUrl(result.Id), "_blank");
+                // Open PDF in new tab (using helper to avoid popup blocker)
+                await JS.InvokeVoidAsync("openInNewTab", ContentService.GetPdfUrl(result.Id));
 
                 // Reload content list
                 await LoadGeneratedContent();

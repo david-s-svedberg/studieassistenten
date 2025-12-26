@@ -60,6 +60,19 @@
             console.log('PWA installed successfully');
             window.deferredPrompt = null;
         });
+
+        // Open URL in new tab without triggering popup blocker
+        // Creates a temporary anchor element and clicks it, which browsers treat as user-initiated
+        window.openInNewTab = function(url) {
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+            anchor.style.display = 'none';
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+        };
     </script>
 </body>
 
