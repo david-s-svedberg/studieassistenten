@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.Extensions.Logging;
 using StudieAssistenten.Shared.DTOs;
 
 namespace StudieAssistenten.Client.Services;
@@ -30,16 +31,19 @@ public class DocumentService : IDocumentService
     }
 
     public async Task<DocumentDto?> UploadDocumentAsync(
-        Stream fileStream, 
-        string fileName, 
-        string contentType, 
+        Stream fileStream,
+        string fileName,
+        string contentType,
         long fileSize,
         int? testId = null)
     {
         try
         {
+            _logger.LogInformation("Uploading document: {FileName} ({FileSize} bytes) to test {TestId}",
+                fileName, fileSize, testId);
+
             using var content = new MultipartFormDataContent();
-            
+
             var streamContent = new StreamContent(fileStream);
             streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
             content.Add(streamContent, "file", fileName);
@@ -50,10 +54,12 @@ public class DocumentService : IDocumentService
             }
 
             var response = await _httpClient.PostAsync("api/documents/upload", content);
-            
+
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<DocumentDto>();
+                var document = await response.Content.ReadFromJsonAsync<DocumentDto>();
+                _logger.LogInformation("Document uploaded successfully: {DocumentId}", document?.Id);
+                return document;
             }
             else
             {

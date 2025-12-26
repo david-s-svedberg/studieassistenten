@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject CustomAuthStateProvider AuthStateProvider
 @inject HttpClient Http
+@inject IToastService ToastService
 @implements IDisposable
 
 <AuthorizeView>
@@ -109,6 +110,7 @@
         </div>
 
         <PwaInstallPrompt />
+        <ToastContainer />
     </Authorized>
     <NotAuthorized>
         @* Show nothing - App.razor will handle redirect to login *@
@@ -382,7 +384,7 @@
         }
         catch
         {
-            // TODO: Show error message to user
+            ToastService.ShowError("Failed to create test. Please try again.");
         }
     }
 

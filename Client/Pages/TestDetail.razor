@@ -12,6 +12,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject HttpClient Http
+@inject IToastService ToastService
 
 <PageTitle>@(test?.Name ?? "Test")</PageTitle>
 
@@ -861,7 +862,7 @@ else
         }
         catch
         {
-            // TODO: Show error message to user
+            ToastService.ShowError("Failed to generate content. Please try again.");
         }
         finally
         {
@@ -1151,21 +1152,21 @@ else
                 {
                     namingSucceeded = false;
                     lastFailedNamingReason = "AI could not generate a suitable name";
-                    ShowToast("Could not auto-generate test name. You can edit it manually.", "warning");
+                    ToastService.ShowWarning("Could not auto-generate test name. You can edit it manually.");
                 }
             }
             else
             {
                 namingSucceeded = false;
                 lastFailedNamingReason = "OCR timeout";
-                ShowToast("OCR is taking longer than expected. Test name not generated.", "warning");
+                ToastService.ShowWarning("OCR is taking longer than expected. Test name not generated.");
             }
         }
         catch (Exception ex)
         {
             namingSucceeded = false;
             lastFailedNamingReason = ex.Message;
-            ShowToast($"Error generating test name: {ex.Message}", "error");
+            ToastService.ShowError($"Error generating test name: {ex.Message}");
         }
         finally
         {
@@ -1212,13 +1213,4 @@ else
         return false;
     }
 
-    private void ShowToast(string message, string type)
-    {
-        // TODO: Implement toast notification
-        // For now, just log to console
-        Console.WriteLine($"[Toast {type}] {message}");
-
-        // Can use JSInterop for browser notifications or integrate a toast library
-        // await JS.InvokeVoidAsync("showToast", message, type);
-    }
 }

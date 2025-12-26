@@ -4,6 +4,7 @@
 @using StudieAssistenten.Shared.DTOs
 @inject NavigationManager Navigation
 @inject ITestService TestService
+@inject IToastService ToastService
 
 <PageTitle>Studieassistenten</PageTitle>
 
@@ -131,7 +132,7 @@
         }
         catch
         {
-            // TODO: Show error message to user
+            ToastService.ShowError("Failed to create test. Please try again.");
         }
     }
 }

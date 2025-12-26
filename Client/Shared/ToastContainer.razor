@@ -1,0 +1,73 @@
+@using StudieAssistenten.Client.Services
+@inject IToastService ToastService
+@implements IDisposable
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11;">
+    @foreach (var toast in toasts)
+    {
+        <Toast @key="toast.Id"
+               Message="@toast.Message"
+               Title="@toast.Title"
+               Type="@toast.Type"
+               DurationMs="@toast.Duration"
+               OnClose="() => RemoveToast(toast.Id)" />
+    }
+</div>
+
+@code {
+    private List<ToastInstance> toasts = new();
+    private int nextId = 0;
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += ShowToast;
+    }
+
+    private void ShowToast(string message, string title, Toast.ToastType type)
+    {
+        var toast = new ToastInstance
+        {
+            Id = nextId++,
+            Message = message,
+            Title = title,
+            Type = type,
+            Duration = 5000
+        };
+
+        toasts.Add(toast);
+        StateHasChanged();
+
+        // Auto-remove after duration
+        _ = Task.Delay(toast.Duration + 500).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                RemoveToast(toast.Id);
+                StateHasChanged();
+            });
+        });
+    }
+
+    private void RemoveToast(int id)
+    {
+        var toast = toasts.FirstOrDefault(t => t.Id == id);
+        if (toast != null)
+        {
+            toasts.Remove(toast);
+        }
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShow -= ShowToast;
+    }
+
+    private class ToastInstance
+    {
+        public int Id { get; set; }
+        public string Message { get; set; } = "";
+        public string Title { get; set; } = "";
+        public Toast.ToastType Type { get; set; }
+        public int Duration { get; set; }
+    }
+}
