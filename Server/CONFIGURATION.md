@@ -227,6 +227,64 @@ export RateLimiting__EnableRateLimiting="false"
 
 ---
 
+### CORS (Cross-Origin Resource Sharing)
+
+Configures cross-origin request handling for the API.
+
+```json
+"Cors": {
+  "EnableCors": false,
+  "AllowedOrigins": []
+}
+```
+
+| Setting | Description | Default | Type |
+|---------|-------------|---------|------|
+| `EnableCors` | Enable CORS policy | `false` | Boolean |
+| `AllowedOrigins` | List of allowed origin URLs | `[]` | Array |
+
+**When CORS is Needed:**
+- **Development**: Blazor WASM hot reload may use different ports ✅
+- **Separate Deployments**: API and client hosted on different domains ✅
+- **Production (hosted app)**: NOT needed - same origin ❌
+
+**Development Configuration (appsettings.Development.json):**
+```json
+"Cors": {
+  "EnableCors": true,
+  "AllowedOrigins": [
+    "https://localhost:7247",
+    "http://localhost:5059"
+  ]
+}
+```
+
+**Production with Separate Domains:**
+```json
+"Cors": {
+  "EnableCors": true,
+  "AllowedOrigins": [
+    "https://app.studieassistenten.com",
+    "https://www.studieassistenten.com"
+  ]
+}
+```
+
+**Environment Variable Override:**
+```bash
+export Cors__EnableCors="true"
+export Cors__AllowedOrigins__0="https://app.example.com"
+export Cors__AllowedOrigins__1="https://www.example.com"
+```
+
+**Important Notes:**
+- CORS is **disabled by default** in production (hosted Blazor WASM = same origin)
+- CORS is **enabled in Development** for local debugging
+- Only enable in production if deploying API and client separately
+- `AllowCredentials` is always enabled for cookie-based authentication
+
+---
+
 ### File Upload
 
 Configures file upload restrictions for security and resource management.

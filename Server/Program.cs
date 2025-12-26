@@ -194,19 +194,22 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
-// Configure CORS for development
-builder.Services.AddCors(options =>
+// Configure CORS (only needed in Development or when API/Client are on different origins)
+var corsEnabled = builder.Configuration.GetValue<bool>("Cors:EnableCors");
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
+if (corsEnabled && allowedOrigins.Length > 0)
 {
-    options.AddPolicy("AllowBlazorClient",
-        policy => policy
-            .WithOrigins(
-                "https://localhost:7247",  // Server URL (Blazor WASM is hosted here)
-                "http://localhost:5059"     // Alternative HTTP port
-            )
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials()); // Required for cookie authentication
-});
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowBlazorClient",
+            policy => policy
+                .WithOrigins(allowedOrigins)
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials()); // Required for cookie authentication
+    });
+}
 
 var app = builder.Build();
 
@@ -238,7 +241,11 @@ if (!Directory.Exists(uploadsPath))
 
 app.UseRouting();
 
-app.UseCors("AllowBlazorClient");
+// Apply CORS policy if configured (Development or separate deployments)
+if (corsEnabled && allowedOrigins.Length > 0)
+{
+    app.UseCors("AllowBlazorClient");
+}
 
 // Security headers middleware
 app.Use(async (context, next) =>
