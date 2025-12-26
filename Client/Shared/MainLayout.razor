@@ -27,7 +27,7 @@
             @* Left Sidebar - ChatGPT style *@
             <div class="sidebar-new @(isMobileMenuOpen ? "mobile-open" : "")">
                 <div class="sidebar-header">
-                    <h1 class="app-title" @onclick='() => Navigation.NavigateTo("/")'>
+                    <h1 class="app-title" @onclick="NavigateToHome">
                         StudieAssistenten
                     </h1>
                     <button class="btn btn-primary w-100 mb-3" @onclick="CreateNewTest">
@@ -389,6 +389,12 @@
     private void NavigateToTest(int testId)
     {
         Navigation.NavigateTo($"/test/{testId}");
+        CloseMobileMenu(); // Close menu after navigation on mobile
+    }
+
+    private void NavigateToHome()
+    {
+        Navigation.NavigateTo("/");
         CloseMobileMenu(); // Close menu after navigation on mobile
     }
 

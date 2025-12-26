@@ -1,6 +1,7 @@
 using Anthropic.SDK.Messaging;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
+using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
 
@@ -8,7 +9,7 @@ namespace StudieAssistenten.Server.Services.AI.Generators;
 
 public interface IPracticeTestGenerator
 {
-    Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null);
+    Task<GeneratedContent> GenerateAsync(GenerateContentRequestDto request);
 }
 
 public class PracticeTestGenerator : BaseContentGenerator, IPracticeTestGenerator
@@ -26,23 +27,23 @@ public class PracticeTestGenerator : BaseContentGenerator, IPracticeTestGenerato
         _apiClient = apiClient;
     }
 
-    public async Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null)
+    public async Task<GeneratedContent> GenerateAsync(GenerateContentRequestDto request)
     {
         await CheckRateLimitAsync();
 
         // Get test with all documents
         var test = await Context.Tests
             .Include(t => t.Documents)
-            .FirstOrDefaultAsync(t => t.Id == testId);
+            .FirstOrDefaultAsync(t => t.Id == request.TestId);
 
         if (test == null)
         {
-            throw new InvalidOperationException($"Test {testId} not found");
+            throw new InvalidOperationException($"Test {request.TestId} not found");
         }
 
         if (!test.Documents.Any())
         {
-            throw new InvalidOperationException($"Test {testId} has no documents");
+            throw new InvalidOperationException($"Test {request.TestId} has no documents");
         }
 
         // Combine text from all documents
@@ -53,24 +54,38 @@ public class PracticeTestGenerator : BaseContentGenerator, IPracticeTestGenerato
 
         if (string.IsNullOrWhiteSpace(combinedText))
         {
-            throw new InvalidOperationException($"No text content available in test {testId} documents");
+            throw new InvalidOperationException($"No text content available in test {request.TestId} documents");
         }
 
         Logger.LogInformation("Generating practice test for test {TestId} with {DocumentCount} documents",
-            testId, test.Documents.Count);
+            request.TestId, test.Documents.Count);
+
+        // Determine question count based on options
+        var questionCount = request.NumberOfQuestions.HasValue
+            ? $"{request.NumberOfQuestions.Value} questions"
+            : "5-10 questions";
+
+        // Build question types instruction
+        var questionTypesInstruction = BuildQuestionTypesInstruction(request.QuestionTypes);
+
+        // Determine explanation note
+        var explanationsNote = request.IncludeAnswerExplanations
+            ? "Include detailed explanations for each answer."
+            : "Provide an answer key without detailed explanations.";
 
         var systemPrompt = @"You are an educational assistant that creates practice tests from study materials.
 Create a practice test in Swedish with multiple choice questions, short answer questions, or essay questions.
 Make the questions challenging but fair, covering the key concepts from the material.
 Format your response as markdown with clear numbering and formatting.";
 
-        var userPrompt = $@"Create a practice test with 5-10 questions from the following study material:
+        var userPrompt = $@"Create a practice test with {questionCount} from the following study material:
 
 {combinedText}
 
-Include a mix of question types (multiple choice, short answer) and provide an answer key at the end.
+{questionTypesInstruction}
+Provide an answer key at the end. {explanationsNote}
 
-{(string.IsNullOrWhiteSpace(teacherInstructions) ? "" : $"\nAdditional instructions: {teacherInstructions}")}";
+{(string.IsNullOrWhiteSpace(request.TeacherInstructions) ? "" : $"\nAdditional instructions: {request.TeacherInstructions}")}";
 
         var response = await _apiClient.SendMessageAsync(systemPrompt, userPrompt, temperature: 0.7m);
 
@@ -78,7 +93,7 @@ Include a mix of question types (multiple choice, short answer) and provide an a
 
         var generatedContent = new GeneratedContent
         {
-            TestId = testId,
+            TestId = request.TestId,
             StudyDocumentId = null, // Generated from all documents in test
             ProcessingType = ProcessingType.PracticeTest,
             GeneratedAt = DateTime.UtcNow,
@@ -89,8 +104,22 @@ Include a mix of question types (multiple choice, short answer) and provide an a
         Context.GeneratedContents.Add(generatedContent);
         await Context.SaveChangesAsync();
 
-        Logger.LogInformation("Created practice test for test {TestId}", testId);
+        Logger.LogInformation("Created practice test for test {TestId}", request.TestId);
 
         return generatedContent;
+    }
+
+    private string BuildQuestionTypesInstruction(List<string>? types)
+    {
+        if (types == null || !types.Any() || types.Contains("Mixed"))
+            return "Include a mix of question types (multiple choice, true/false, short answer, essay).";
+
+        var typeDescriptions = new List<string>();
+        if (types.Contains("MultipleChoice")) typeDescriptions.Add("multiple choice");
+        if (types.Contains("TrueFalse")) typeDescriptions.Add("true/false");
+        if (types.Contains("ShortAnswer")) typeDescriptions.Add("short answer");
+        if (types.Contains("Essay")) typeDescriptions.Add("essay");
+
+        return $"Include only these question types: {string.Join(", ", typeDescriptions)}.";
     }
 }

@@ -1,6 +1,7 @@
 using Anthropic.SDK.Messaging;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
+using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
 
@@ -8,7 +9,7 @@ namespace StudieAssistenten.Server.Services.AI.Generators;
 
 public interface ISummaryGenerator
 {
-    Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null);
+    Task<GeneratedContent> GenerateAsync(GenerateContentRequestDto request);
 }
 
 public class SummaryGenerator : BaseContentGenerator, ISummaryGenerator
@@ -26,23 +27,23 @@ public class SummaryGenerator : BaseContentGenerator, ISummaryGenerator
         _apiClient = apiClient;
     }
 
-    public async Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null)
+    public async Task<GeneratedContent> GenerateAsync(GenerateContentRequestDto request)
     {
         await CheckRateLimitAsync();
 
         // Get test with all documents
         var test = await Context.Tests
             .Include(t => t.Documents)
-            .FirstOrDefaultAsync(t => t.Id == testId);
+            .FirstOrDefaultAsync(t => t.Id == request.TestId);
 
         if (test == null)
         {
-            throw new InvalidOperationException($"Test {testId} not found");
+            throw new InvalidOperationException($"Test {request.TestId} not found");
         }
 
         if (!test.Documents.Any())
         {
-            throw new InvalidOperationException($"Test {testId} has no documents");
+            throw new InvalidOperationException($"Test {request.TestId} has no documents");
         }
 
         // Combine text from all documents
@@ -53,22 +54,39 @@ public class SummaryGenerator : BaseContentGenerator, ISummaryGenerator
 
         if (string.IsNullOrWhiteSpace(combinedText))
         {
-            throw new InvalidOperationException($"No text content available in test {testId} documents");
+            throw new InvalidOperationException($"No text content available in test {request.TestId} documents");
         }
 
         Logger.LogInformation("Generating summary for test {TestId} with {DocumentCount} documents",
-            testId, test.Documents.Count);
+            request.TestId, test.Documents.Count);
 
-        var systemPrompt = @"You are an educational assistant that creates concise summaries of study materials.
+        // Determine length instruction
+        var lengthInstruction = request.SummaryLength switch
+        {
+            "Brief" => "Create a brief summary focusing on critical points (1-2 pages).",
+            "Detailed" => "Create a comprehensive summary covering all concepts (4-6 pages).",
+            _ => "Create a balanced summary of key concepts (2-3 pages)." // "Standard" or null
+        };
+
+        // Determine format instruction
+        var formatInstruction = request.SummaryFormat switch
+        {
+            "Paragraphs" => "Use well-structured paragraphs with clear topic sentences.",
+            "Outline" => "Use a hierarchical outline format with numbered sections and subsections.",
+            _ => "Use bullet points organized under clear headings." // "Bullets" or null
+        };
+
+        var systemPrompt = $@"You are an educational assistant that creates summaries of study materials.
 Create a clear, structured summary in Swedish that captures the key concepts and important details.
-Use bullet points, headings, and formatting to make the summary easy to scan and understand.
+{formatInstruction}
+{lengthInstruction}
 Focus on what students need to know for studying and test preparation.";
 
-        var userPrompt = $@"Create a comprehensive but concise summary of the following study material:
+        var userPrompt = $@"Create a summary of the following study material:
 
 {combinedText}
 
-{(string.IsNullOrWhiteSpace(teacherInstructions) ? "" : $"\nAdditional instructions: {teacherInstructions}")}";
+{(string.IsNullOrWhiteSpace(request.TeacherInstructions) ? "" : $"\nAdditional instructions: {request.TeacherInstructions}")}";
 
         var response = await _apiClient.SendMessageAsync(systemPrompt, userPrompt, temperature: 0.5m);
 
@@ -76,7 +94,7 @@ Focus on what students need to know for studying and test preparation.";
 
         var generatedContent = new GeneratedContent
         {
-            TestId = testId,
+            TestId = request.TestId,
             StudyDocumentId = null, // Generated from all documents in test
             ProcessingType = ProcessingType.Summary,
             GeneratedAt = DateTime.UtcNow,
@@ -87,7 +105,7 @@ Focus on what students need to know for studying and test preparation.";
         Context.GeneratedContents.Add(generatedContent);
         await Context.SaveChangesAsync();
 
-        Logger.LogInformation("Created summary for test {TestId}", testId);
+        Logger.LogInformation("Created summary for test {TestId}", request.TestId);
 
         return generatedContent;
     }

@@ -1,0 +1,113 @@
+@* PracticeTestOptionsDialog.razor *@
+<div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-text me-2"></i>Practice Test Options
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Number of Questions</label>
+                    <select class="form-select bg-dark text-light border-secondary" @bind="numberOfQuestions">
+                        <option value="">AI decides (recommended)</option>
+                        <option value="5">5 questions</option>
+                        <option value="10">10 questions</option>
+                        <option value="15">15 questions</option>
+                        <option value="20">20 questions</option>
+                        <option value="25">25 questions</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Question Types</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="includeMultipleChoice" id="chkMultipleChoice">
+                        <label class="form-check-label" for="chkMultipleChoice">Multiple Choice</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="includeTrueFalse" id="chkTrueFalse">
+                        <label class="form-check-label" for="chkTrueFalse">True/False</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="includeShortAnswer" id="chkShortAnswer">
+                        <label class="form-check-label" for="chkShortAnswer">Short Answer</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="includeEssay" id="chkEssay">
+                        <label class="form-check-label" for="chkEssay">Essay</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="includeMixed" id="chkMixed">
+                        <label class="form-check-label" for="chkMixed">Mixed (AI decides)</label>
+                    </div>
+                    @if (!IsValid)
+                    {
+                        <small class="text-danger">Select at least one question type</small>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="includeExplanations" id="chkExplanations">
+                        <label class="form-check-label" for="chkExplanations">
+                            Include answer explanations
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-info" @onclick="OnConfirmClick" disabled="@(!IsValid)">
+                    <i class="bi bi-file-text me-2"></i>Generate Practice Test
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<PracticeTestOptions> OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private string numberOfQuestions = "";
+    private bool includeMultipleChoice = false;
+    private bool includeTrueFalse = false;
+    private bool includeShortAnswer = false;
+    private bool includeEssay = false;
+    private bool includeMixed = true; // Only this is checked by default per user preference
+    private bool includeExplanations = true;
+
+    private bool IsValid => includeMultipleChoice || includeTrueFalse || includeShortAnswer || includeEssay || includeMixed;
+
+    private async Task OnConfirmClick()
+    {
+        var questionTypes = new List<string>();
+        if (includeMultipleChoice) questionTypes.Add("MultipleChoice");
+        if (includeTrueFalse) questionTypes.Add("TrueFalse");
+        if (includeShortAnswer) questionTypes.Add("ShortAnswer");
+        if (includeEssay) questionTypes.Add("Essay");
+        if (includeMixed) questionTypes.Add("Mixed");
+
+        var options = new PracticeTestOptions
+        {
+            NumberOfQuestions = string.IsNullOrEmpty(numberOfQuestions) ? null : int.Parse(numberOfQuestions),
+            QuestionTypes = questionTypes,
+            IncludeAnswerExplanations = includeExplanations
+        };
+
+        await OnConfirm.InvokeAsync(options);
+    }
+
+    public class PracticeTestOptions
+    {
+        public int? NumberOfQuestions { get; set; }
+        public List<string> QuestionTypes { get; set; } = new();
+        public bool IncludeAnswerExplanations { get; set; }
+    }
+}

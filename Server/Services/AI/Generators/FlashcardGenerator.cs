@@ -1,6 +1,7 @@
 using Anthropic.SDK.Messaging;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
+using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
 using System.Text.Json;
@@ -9,7 +10,7 @@ namespace StudieAssistenten.Server.Services.AI.Generators;
 
 public interface IFlashcardGenerator
 {
-    Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null);
+    Task<GeneratedContent> GenerateAsync(GenerateContentRequestDto request);
 }
 
 public class FlashcardGenerator : BaseContentGenerator, IFlashcardGenerator
@@ -27,23 +28,23 @@ public class FlashcardGenerator : BaseContentGenerator, IFlashcardGenerator
         _apiClient = apiClient;
     }
 
-    public async Task<GeneratedContent> GenerateAsync(int testId, string? teacherInstructions = null)
+    public async Task<GeneratedContent> GenerateAsync(GenerateContentRequestDto request)
     {
         await CheckRateLimitAsync();
 
         // Get test with all documents
         var test = await Context.Tests
             .Include(t => t.Documents)
-            .FirstOrDefaultAsync(t => t.Id == testId);
+            .FirstOrDefaultAsync(t => t.Id == request.TestId);
 
         if (test == null)
         {
-            throw new InvalidOperationException($"Test {testId} not found");
+            throw new InvalidOperationException($"Test {request.TestId} not found");
         }
 
         if (!test.Documents.Any())
         {
-            throw new InvalidOperationException($"Test {testId} has no documents");
+            throw new InvalidOperationException($"Test {request.TestId} has no documents");
         }
 
         // Combine text from all documents
@@ -54,24 +55,39 @@ public class FlashcardGenerator : BaseContentGenerator, IFlashcardGenerator
 
         if (string.IsNullOrWhiteSpace(combinedText))
         {
-            throw new InvalidOperationException($"No text content available in test {testId} documents");
+            throw new InvalidOperationException($"No text content available in test {request.TestId} documents");
         }
 
         Logger.LogInformation("Generating flashcards for test {TestId} with {DocumentCount} documents",
-            testId, test.Documents.Count);
+            request.TestId, test.Documents.Count);
         Logger.LogInformation("Processing combined text length: {TextLength} characters", combinedText.Length);
 
-        var systemPrompt = @"You are an educational assistant that creates flashcards from study materials.
+        // Determine card count based on options
+        var cardCount = request.NumberOfCards.HasValue
+            ? $"{request.NumberOfCards.Value} flashcards"
+            : "10-15 flashcards";
+
+        // Determine difficulty instruction
+        var difficultyInstruction = request.DifficultyLevel switch
+        {
+            "Basic" => "Focus on fundamental concepts. Keep questions and answers simple and clear.",
+            "Intermediate" => "Include moderate complexity. Mix basic and advanced concepts.",
+            "Advanced" => "Challenge students with complex questions requiring deep understanding.",
+            _ => "Include a variety of difficulty levels from basic to advanced." // "Mixed" or null
+        };
+
+        var systemPrompt = $@"You are an educational assistant that creates flashcards from study materials.
 Create flashcards in Swedish that help students learn the key concepts.
 Each flashcard should have a clear question and a concise answer.
+{difficultyInstruction}
 Format your response as a JSON array of objects with 'question' and 'answer' properties.
-Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process där växter omvandlar ljusenergi till kemisk energi.""}]";
+Example: [{{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process där växter omvandlar ljusenergi till kemisk energi.""}}]";
 
-        var userPrompt = $@"Create 10-15 flashcards from the following study material:
+        var userPrompt = $@"Create {cardCount} from the following study material:
 
 {combinedText}
 
-{(string.IsNullOrWhiteSpace(teacherInstructions) ? "" : $"\nAdditional instructions: {teacherInstructions}")}";
+{(string.IsNullOrWhiteSpace(request.TeacherInstructions) ? "" : $"\nAdditional instructions: {request.TeacherInstructions}")}";
 
         var response = await _apiClient.SendMessageAsync(systemPrompt, userPrompt, temperature: 0.7m);
 
@@ -95,7 +111,7 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
         // Create GeneratedContent with flashcards (belongs to test, not individual document)
         var generatedContent = new GeneratedContent
         {
-            TestId = testId,
+            TestId = request.TestId,
             StudyDocumentId = null, // Generated from all documents in test
             ProcessingType = ProcessingType.Flashcards,
             GeneratedAt = DateTime.UtcNow,
@@ -112,7 +128,7 @@ Example: [{""question"": ""Vad är fotosyntesen?"", ""answer"": ""En process dä
         Context.GeneratedContents.Add(generatedContent);
         await Context.SaveChangesAsync();
 
-        Logger.LogInformation("Created {Count} flashcards for test {TestId}", flashcardsData.Count, testId);
+        Logger.LogInformation("Created {Count} flashcards for test {TestId}", flashcardsData.Count, request.TestId);
 
         return generatedContent;
     }

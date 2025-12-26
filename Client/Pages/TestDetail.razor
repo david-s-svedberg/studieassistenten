@@ -3,6 +3,9 @@
 @using StudieAssistenten.Shared.DTOs
 @using StudieAssistenten.Shared.Enums
 @using StudieAssistenten.Client.Services
+@using static StudieAssistenten.Client.Shared.FlashcardOptionsDialog
+@using static StudieAssistenten.Client.Shared.PracticeTestOptionsDialog
+@using static StudieAssistenten.Client.Shared.SummaryOptionsDialog
 @inject ITestService TestService
 @inject IDocumentService DocumentService
 @inject ContentGenerationService ContentService
@@ -304,6 +307,22 @@ else
             }
         </div>
     </div>
+}
+
+@* Option Dialogs *@
+@if (showFlashcardDialog)
+{
+    <FlashcardOptionsDialog OnConfirm="HandleFlashcardOptions" OnCancel="CloseDialogs" />
+}
+
+@if (showPracticeTestDialog)
+{
+    <PracticeTestOptionsDialog OnConfirm="HandlePracticeTestOptions" OnCancel="CloseDialogs" />
+}
+
+@if (showSummaryDialog)
+{
+    <SummaryOptionsDialog OnConfirm="HandleSummaryOptions" OnCancel="CloseDialogs" />
 }
 
 <style>
@@ -645,6 +664,11 @@ else
     private bool isEditingName = false;
     private string editedName = "";
 
+    // Dialog state
+    private bool showFlashcardDialog = false;
+    private bool showPracticeTestDialog = false;
+    private bool showSummaryDialog = false;
+
     // Upload state
     private List<IBrowserFile> selectedFiles = new();
     private bool isUploading = false;
@@ -737,22 +761,75 @@ else
         }
     }
 
-    private async Task GenerateFlashcards()
+    private void GenerateFlashcards()
     {
-        await GenerateContent(ProcessingType.Flashcards);
+        showFlashcardDialog = true;
     }
 
-    private async Task GeneratePracticeTest()
+    private void GeneratePracticeTest()
     {
-        await GenerateContent(ProcessingType.PracticeTest);
+        showPracticeTestDialog = true;
     }
 
-    private async Task GenerateSummary()
+    private void GenerateSummary()
     {
-        await GenerateContent(ProcessingType.Summary);
+        showSummaryDialog = true;
     }
 
-    private async Task GenerateContent(ProcessingType type)
+    private void CloseDialogs()
+    {
+        showFlashcardDialog = false;
+        showPracticeTestDialog = false;
+        showSummaryDialog = false;
+    }
+
+    private async Task HandleFlashcardOptions(FlashcardOptions options)
+    {
+        CloseDialogs();
+
+        var request = new GenerateContentRequestDto
+        {
+            TestId = test!.Id,
+            ProcessingType = ProcessingType.Flashcards,
+            NumberOfCards = options.NumberOfCards,
+            DifficultyLevel = options.DifficultyLevel
+        };
+
+        await GenerateContentWithRequest(request, ProcessingType.Flashcards);
+    }
+
+    private async Task HandlePracticeTestOptions(PracticeTestOptions options)
+    {
+        CloseDialogs();
+
+        var request = new GenerateContentRequestDto
+        {
+            TestId = test!.Id,
+            ProcessingType = ProcessingType.PracticeTest,
+            NumberOfQuestions = options.NumberOfQuestions,
+            QuestionTypes = options.QuestionTypes,
+            IncludeAnswerExplanations = options.IncludeAnswerExplanations
+        };
+
+        await GenerateContentWithRequest(request, ProcessingType.PracticeTest);
+    }
+
+    private async Task HandleSummaryOptions(SummaryOptions options)
+    {
+        CloseDialogs();
+
+        var request = new GenerateContentRequestDto
+        {
+            TestId = test!.Id,
+            ProcessingType = ProcessingType.Summary,
+            SummaryLength = options.Length,
+            SummaryFormat = options.Format
+        };
+
+        await GenerateContentWithRequest(request, ProcessingType.Summary);
+    }
+
+    private async Task GenerateContentWithRequest(GenerateContentRequestDto request, ProcessingType type)
     {
         if (test == null || documents.Count == 0) return;
 
@@ -761,12 +838,6 @@ else
 
         try
         {
-            var request = new GenerateContentRequestDto
-            {
-                TestId = test.Id,
-                ProcessingType = type
-            };
-
             var result = await ContentService.GenerateContentAsync(request);
 
             if (result != null)

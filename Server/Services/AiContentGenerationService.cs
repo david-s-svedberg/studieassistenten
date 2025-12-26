@@ -1,14 +1,15 @@
 using StudieAssistenten.Server.Services.AI;
 using StudieAssistenten.Server.Services.AI.Generators;
+using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Models;
 
 namespace StudieAssistenten.Server.Services;
 
 public interface IAiContentGenerationService
 {
-    Task<GeneratedContent> GenerateFlashcardsAsync(int documentId, string? teacherInstructions = null);
-    Task<GeneratedContent> GeneratePracticeTestAsync(int documentId, string? teacherInstructions = null);
-    Task<GeneratedContent> GenerateSummaryAsync(int documentId, string? teacherInstructions = null);
+    Task<GeneratedContent> GenerateFlashcardsAsync(GenerateContentRequestDto request);
+    Task<GeneratedContent> GeneratePracticeTestAsync(GenerateContentRequestDto request);
+    Task<GeneratedContent> GenerateSummaryAsync(GenerateContentRequestDto request);
     Task<string> SuggestTestNameAsync(int testId);
 }
 
@@ -34,19 +35,19 @@ public class AiContentGenerationService : IAiContentGenerationService
         _testNamingService = testNamingService;
     }
 
-    public async Task<GeneratedContent> GenerateFlashcardsAsync(int documentId, string? teacherInstructions = null)
+    public async Task<GeneratedContent> GenerateFlashcardsAsync(GenerateContentRequestDto request)
     {
-        return await _flashcardGenerator.GenerateAsync(documentId, teacherInstructions);
+        return await _flashcardGenerator.GenerateAsync(request);
     }
 
-    public async Task<GeneratedContent> GeneratePracticeTestAsync(int documentId, string? teacherInstructions = null)
+    public async Task<GeneratedContent> GeneratePracticeTestAsync(GenerateContentRequestDto request)
     {
-        return await _practiceTestGenerator.GenerateAsync(documentId, teacherInstructions);
+        return await _practiceTestGenerator.GenerateAsync(request);
     }
 
-    public async Task<GeneratedContent> GenerateSummaryAsync(int documentId, string? teacherInstructions = null)
+    public async Task<GeneratedContent> GenerateSummaryAsync(GenerateContentRequestDto request)
     {
-        return await _summaryGenerator.GenerateAsync(documentId, teacherInstructions);
+        return await _summaryGenerator.GenerateAsync(request);
     }
 
     public async Task<string> SuggestTestNameAsync(int testId)

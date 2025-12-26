@@ -76,9 +76,9 @@ public class ContentGenerationController : BaseApiController
             // Generate content based on type (using all documents in the test)
             var generatedContent = request.ProcessingType switch
             {
-                ProcessingType.Flashcards => await _aiService.GenerateFlashcardsAsync(request.TestId, request.TeacherInstructions),
-                ProcessingType.PracticeTest => await _aiService.GeneratePracticeTestAsync(request.TestId, request.TeacherInstructions),
-                ProcessingType.Summary => await _aiService.GenerateSummaryAsync(request.TestId, request.TeacherInstructions),
+                ProcessingType.Flashcards => await _aiService.GenerateFlashcardsAsync(request),
+                ProcessingType.PracticeTest => await _aiService.GeneratePracticeTestAsync(request),
+                ProcessingType.Summary => await _aiService.GenerateSummaryAsync(request),
                 _ => throw new InvalidOperationException($"Unsupported processing type: {request.ProcessingType}")
             };
 

@@ -1,0 +1,66 @@
+@* SummaryOptionsDialog.razor *@
+<div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-text me-2"></i>Summary Options
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Summary Length</label>
+                    <select class="form-select bg-dark text-light border-secondary" @bind="summaryLength">
+                        <option value="Brief">Brief - High-level overview (1-2 pages)</option>
+                        <option value="Standard">Standard - Balanced coverage (2-3 pages)</option>
+                        <option value="Detailed">Detailed - Comprehensive (4-6 pages)</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Format Style</label>
+                    <select class="form-select bg-dark text-light border-secondary" @bind="summaryFormat">
+                        <option value="Bullets">Bullet Points - Easy to scan</option>
+                        <option value="Paragraphs">Paragraphs - Narrative style</option>
+                        <option value="Outline">Outline - Hierarchical structure</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-warning" @onclick="OnConfirmClick">
+                    <i class="bi bi-file-earmark-text me-2"></i>Generate Summary
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<SummaryOptions> OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private string summaryLength = "Standard";
+    private string summaryFormat = "Bullets";
+
+    private async Task OnConfirmClick()
+    {
+        var options = new SummaryOptions
+        {
+            Length = summaryLength,
+            Format = summaryFormat
+        };
+
+        await OnConfirm.InvokeAsync(options);
+    }
+
+    public class SummaryOptions
+    {
+        public string Length { get; set; } = "Standard";
+        public string Format { get; set; } = "Bullets";
+    }
+}

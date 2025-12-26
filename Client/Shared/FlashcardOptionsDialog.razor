@@ -1,0 +1,72 @@
+@* FlashcardOptionsDialog.razor *@
+<div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">
+                    <i class="bi bi-card-list me-2"></i>Flashcard Options
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Number of Cards</label>
+                    <select class="form-select bg-dark text-light border-secondary" @bind="numberOfCards">
+                        <option value="">AI decides (recommended)</option>
+                        <option value="5">5 cards</option>
+                        <option value="10">10 cards</option>
+                        <option value="15">15 cards</option>
+                        <option value="20">20 cards</option>
+                        <option value="25">25 cards</option>
+                        <option value="30">30 cards</option>
+                    </select>
+                    <small class="text-muted">Let AI decide based on content length, or specify a number</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Difficulty Level</label>
+                    <select class="form-select bg-dark text-light border-secondary" @bind="difficultyLevel">
+                        <option value="Mixed">Mixed (recommended)</option>
+                        <option value="Basic">Basic - Fundamental concepts</option>
+                        <option value="Intermediate">Intermediate - Moderate complexity</option>
+                        <option value="Advanced">Advanced - Deep understanding</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-success" @onclick="OnConfirmClick">
+                    <i class="bi bi-card-list me-2"></i>Generate Flashcards
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<FlashcardOptions> OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private string numberOfCards = ""; // empty = AI decides
+    private string difficultyLevel = "Mixed";
+
+    private async Task OnConfirmClick()
+    {
+        var options = new FlashcardOptions
+        {
+            NumberOfCards = string.IsNullOrEmpty(numberOfCards) ? null : int.Parse(numberOfCards),
+            DifficultyLevel = difficultyLevel
+        };
+
+        await OnConfirm.InvokeAsync(options);
+    }
+
+    public class FlashcardOptions
+    {
+        public int? NumberOfCards { get; set; }
+        public string DifficultyLevel { get; set; } = "Mixed";
+    }
+}
