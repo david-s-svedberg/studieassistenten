@@ -74,7 +74,10 @@ public class PracticeTestGenerator : BaseContentGenerator, IPracticeTestGenerato
             ? "Include detailed explanations for each answer."
             : "Provide an answer key without detailed explanations.";
 
-        var systemPrompt = @"You are an educational assistant that creates practice tests from study materials.
+        var provider = _aiProviderFactory.GetProvider();
+
+        // STEP 1: Generate multiple-choice questions as JSON (for interactive player)
+        var mcSystemPrompt = @"You are an educational assistant that creates practice tests from study materials.
 Create a practice test in Swedish with multiple-choice questions.
 Make the questions challenging but fair, covering the key concepts from the material.
 
@@ -97,7 +100,7 @@ Example response format:
   }
 ]";
 
-        var userPrompt = $@"Create a multiple-choice practice test with {questionCount} from the following study material.
+        var mcUserPrompt = $@"Create a multiple-choice practice test with {questionCount} from the following study material.
 Each question should have 4 options.
 {explanationsNote}
 
@@ -108,25 +111,20 @@ Study material:
 
 Return ONLY the JSON array, no markdown formatting or additional text.";
 
-        var aiRequest = new AiRequest
+        var mcRequest = new AiRequest
         {
-            SystemPrompt = systemPrompt,
-            UserPrompt = userPrompt,
+            SystemPrompt = mcSystemPrompt,
+            UserPrompt = mcUserPrompt,
             Temperature = 0.7m,
             EnableCaching = true
         };
 
-        var provider = _aiProviderFactory.GetProvider();
-        var response = await provider.SendMessageAsync(aiRequest);
-
-        var content = response.Content;
-        Logger.LogInformation("Received practice test response: {Length} characters", content.Length);
-
-        // Clean JSON response (remove markdown code fences if present)
-        content = CleanJsonResponse(content);
+        var mcResponse = await provider.SendMessageAsync(mcRequest);
+        var jsonContent = CleanJsonResponse(mcResponse.Content);
+        Logger.LogInformation("Received multiple-choice JSON: {Length} characters", jsonContent.Length);
 
         // Parse the JSON response
-        var questionsData = JsonSerializer.Deserialize<List<PracticeQuestionData>>(content, new JsonSerializerOptions
+        var questionsData = JsonSerializer.Deserialize<List<PracticeQuestionData>>(jsonContent, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
@@ -136,7 +134,41 @@ Return ONLY the JSON array, no markdown formatting or additional text.";
             throw new InvalidOperationException("Failed to parse practice questions from AI response");
         }
 
-        // Create GeneratedContent with practice questions
+        // STEP 2: Generate formatted practice test with both multiple-choice AND long-form questions (for PDF)
+        var pdfSystemPrompt = @"You are an educational assistant that creates practice tests from study materials.
+Create a comprehensive practice test in Swedish with a mix of question types.
+Make the questions challenging but fair, covering the key concepts from the material.
+
+Format your response using markdown:
+- Use **bold** for question numbers and important terms
+- Use numbered lists (1., 2., etc.) for questions
+- Use lettered lists (A), B), C), D)) for multiple choice options
+- Use ## headings for sections (Questions, Answer Key)
+- Use bullet points (-) in explanations when needed
+- Use tables (| column | column |) for structured answer explanations or data";
+
+        var pdfUserPrompt = $@"Create a comprehensive practice test with {questionCount} from the following study material:
+
+{combinedText}
+
+{questionTypesInstruction}
+Provide an answer key at the end. {explanationsNote}
+
+{(string.IsNullOrWhiteSpace(request.TeacherInstructions) ? "" : $"\nAdditional instructions: {request.TeacherInstructions}")}";
+
+        var pdfRequest = new AiRequest
+        {
+            SystemPrompt = pdfSystemPrompt,
+            UserPrompt = pdfUserPrompt,
+            Temperature = 0.7m,
+            EnableCaching = true
+        };
+
+        var pdfResponse = await provider.SendMessageAsync(pdfRequest);
+        var markdownContent = pdfResponse.Content;
+        Logger.LogInformation("Received formatted PDF content: {Length} characters", markdownContent.Length);
+
+        // Create GeneratedContent with both structured questions (for player) and formatted content (for PDF)
         var generatedContent = new GeneratedContent
         {
             TestId = request.TestId,
@@ -144,7 +176,7 @@ Return ONLY the JSON array, no markdown formatting or additional text.";
             ProcessingType = ProcessingType.PracticeTest,
             GeneratedAt = DateTime.UtcNow,
             Title = $"Practice Test - {test.Name}",
-            Content = content,
+            Content = markdownContent, // Markdown for PDF generation
             PracticeQuestions = questionsData.Select((q, index) => new PracticeQuestion
             {
                 Question = q.Question,
@@ -158,7 +190,8 @@ Return ONLY the JSON array, no markdown formatting or additional text.";
         Context.GeneratedContents.Add(generatedContent);
         await Context.SaveChangesAsync();
 
-        Logger.LogInformation("Created {Count} practice questions for test {TestId}", questionsData.Count, request.TestId);
+        Logger.LogInformation("Created practice test with {Count} interactive questions and formatted PDF content for test {TestId}",
+            questionsData.Count, request.TestId);
 
         return generatedContent;
     }
