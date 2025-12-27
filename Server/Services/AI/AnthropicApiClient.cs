@@ -48,6 +48,12 @@ public class AnthropicApiClient : IAnthropicApiClient
             new Message(RoleType.User, userPrompt)
         };
 
+        // Enable prompt caching for the system prompt to save 90% on repeated content
+        var systemMessage = new SystemMessage(systemPrompt)
+        {
+            CacheControl = new CacheControl { Type = CacheControlType.ephemeral }
+        };
+
         var parameters = new MessageParameters
         {
             Messages = messages,
@@ -55,7 +61,7 @@ public class AnthropicApiClient : IAnthropicApiClient
             Model = _model,
             Stream = false,
             Temperature = temperature,
-            System = new List<SystemMessage> { new SystemMessage(systemPrompt) }
+            System = new List<SystemMessage> { systemMessage }
         };
 
         _logger.LogInformation("Calling Anthropic API with model: {Model}, Temperature: {Temperature}, MaxTokens: {MaxTokens}",
@@ -65,8 +71,32 @@ public class AnthropicApiClient : IAnthropicApiClient
         try
         {
             response = await _client.Messages.GetClaudeMessageAsync(parameters);
-            _logger.LogInformation("API call successful, response ID: {Id}, InputTokens: {InputTokens}, OutputTokens: {OutputTokens}",
-                response.Id, response.Usage.InputTokens, response.Usage.OutputTokens);
+
+            // Log cache performance metrics
+            var cacheReadTokens = response.Usage.CacheReadInputTokens;
+            var cacheCreationTokens = response.Usage.CacheCreationInputTokens;
+            var regularInputTokens = response.Usage.InputTokens;
+
+            if (cacheReadTokens > 0)
+            {
+                _logger.LogInformation("API call successful with CACHE HIT! Response ID: {Id}, " +
+                    "CacheRead: {CacheRead}, Regular: {Regular}, Output: {Output} tokens. " +
+                    "Cost savings: ~{Savings}%",
+                    response.Id, cacheReadTokens, regularInputTokens, response.Usage.OutputTokens,
+                    (int)(cacheReadTokens * 100.0 / (cacheReadTokens + regularInputTokens)));
+            }
+            else if (cacheCreationTokens > 0)
+            {
+                _logger.LogInformation("API call successful, created cache. Response ID: {Id}, " +
+                    "CacheCreation: {CacheCreation}, Regular: {Regular}, Output: {Output} tokens",
+                    response.Id, cacheCreationTokens, regularInputTokens, response.Usage.OutputTokens);
+            }
+            else
+            {
+                _logger.LogInformation("API call successful (no cache), response ID: {Id}, " +
+                    "InputTokens: {InputTokens}, OutputTokens: {OutputTokens}",
+                    response.Id, regularInputTokens, response.Usage.OutputTokens);
+            }
 
             // Record token usage for rate limiting
             if (_configuration.GetValue<bool>("RateLimiting:EnableRateLimiting", true))
