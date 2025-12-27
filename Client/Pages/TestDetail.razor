@@ -766,6 +766,7 @@ else
         }
 
         isLoading = false;
+        StateHasChanged(); // Ensure UI updates after loading
     }
 
     private async Task LoadGeneratedContent()
@@ -1256,6 +1257,7 @@ else
                     namingSucceeded = true;
                     lastFailedNamingReason = null;
                     uploadStatus = $"Test renamed to: {suggestedName}";
+                    StateHasChanged(); // Update UI to show new name immediately
                 }
                 else
                 {
