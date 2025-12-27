@@ -12,6 +12,13 @@ on:
     branches: [ main, develop ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+  checks: write
+  pull-requests: write
+  statuses: write
+
 jobs:
   e2e-tests:
     name: End-to-End Tests
@@ -123,10 +130,32 @@ jobs:
         retention-days: 7
 
     - name: Publish E2E Test Results
-      uses: dorny/test-reporter@v1
       if: always()
-      with:
-        name: E2E Test Results
-        path: 'E2E.Tests/TestResults/*.trx'
-        reporter: dotnet-trx
-        fail-on-error: false
+      run: |
+        echo "## E2E Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Count test results from E2E.Tests
+        if [ -f "E2E.Tests/TestResults/e2e-tests.trx" ]; then
+          E2E_TOTAL=$(grep -oP 'total="\K[0-9]+' E2E.Tests/TestResults/e2e-tests.trx | head -1 || echo "0")
+          E2E_PASSED=$(grep -oP 'passed="\K[0-9]+' E2E.Tests/TestResults/e2e-tests.trx | head -1 || echo "0")
+          E2E_FAILED=$(grep -oP 'failed="\K[0-9]+' E2E.Tests/TestResults/e2e-tests.trx | head -1 || echo "0")
+          E2E_SKIPPED=$(grep -oP 'skipped="\K[0-9]+' E2E.Tests/TestResults/e2e-tests.trx | head -1 || echo "0")
+
+          echo "### End-to-End Tests" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Passed: $E2E_PASSED" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Failed: $E2E_FAILED" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏭️ Skipped: $E2E_SKIPPED" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Total: $E2E_TOTAL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ $E2E_FAILED -gt 0 ]; then
+            echo "### ⚠️ Some E2E tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "Check the uploaded screenshots artifact for details." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ✅ All E2E Tests Passed!" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "### ⚠️ No test results found" >> $GITHUB_STEP_SUMMARY
+          echo "The E2E tests may not have run successfully." >> $GITHUB_STEP_SUMMARY
+        fi

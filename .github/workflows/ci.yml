@@ -7,6 +7,13 @@ on:
     branches: [ main, develop ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+  checks: write
+  pull-requests: write
+  statuses: write
+
 jobs:
   build-and-test:
     name: Build and Test (.NET 8)
@@ -43,13 +50,43 @@ jobs:
         retention-days: 30
 
     - name: Publish Test Results Summary
-      uses: dorny/test-reporter@v1
       if: always()
-      with:
-        name: Test Results
-        path: '**/TestResults/*.trx'
-        reporter: dotnet-trx
-        fail-on-error: true
+      run: |
+        echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Count test results from Server.Tests
+        if [ -f "Server.Tests/TestResults/server-tests.trx" ]; then
+          SERVER_TOTAL=$(grep -oP 'total="\K[0-9]+' Server.Tests/TestResults/server-tests.trx | head -1 || echo "0")
+          SERVER_PASSED=$(grep -oP 'passed="\K[0-9]+' Server.Tests/TestResults/server-tests.trx | head -1 || echo "0")
+          SERVER_FAILED=$(grep -oP 'failed="\K[0-9]+' Server.Tests/TestResults/server-tests.trx | head -1 || echo "0")
+          echo "### Integration Tests (Server.Tests)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Passed: $SERVER_PASSED" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Failed: $SERVER_FAILED" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Total: $SERVER_TOTAL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Count test results from Client.Tests
+        if [ -f "Client.Tests/TestResults/client-tests.trx" ]; then
+          CLIENT_TOTAL=$(grep -oP 'total="\K[0-9]+' Client.Tests/TestResults/client-tests.trx | head -1 || echo "0")
+          CLIENT_PASSED=$(grep -oP 'passed="\K[0-9]+' Client.Tests/TestResults/client-tests.trx | head -1 || echo "0")
+          CLIENT_FAILED=$(grep -oP 'failed="\K[0-9]+' Client.Tests/TestResults/client-tests.trx | head -1 || echo "0")
+          echo "### Component Tests (Client.Tests)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Passed: $CLIENT_PASSED" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Failed: $CLIENT_FAILED" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Total: $CLIENT_TOTAL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Overall status
+        TOTAL_FAILED=$((SERVER_FAILED + CLIENT_FAILED))
+        if [ $TOTAL_FAILED -gt 0 ]; then
+          echo "### ❌ Build Failed: $TOTAL_FAILED test(s) failed" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "### ✅ All Tests Passed!" >> $GITHUB_STEP_SUMMARY
+        fi
 
   code-coverage:
     name: Code Coverage
