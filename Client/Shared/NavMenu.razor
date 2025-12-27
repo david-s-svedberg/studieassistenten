@@ -107,13 +107,21 @@
     private async void OnTestChanged()
     {
         await LogToConsole("[NavMenu] OnTestChanged event received, reloading tests");
-        await LoadTests();
+        // Use InvokeAsync to ensure we're on the component's synchronization context
+        await InvokeAsync(async () =>
+        {
+            await LoadTests();
+        });
     }
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         await LogToConsole($"[NavMenu] Location changed to: {e.Location}");
-        await LoadTests();
+        // Use InvokeAsync to ensure we're on the component's synchronization context
+        await InvokeAsync(async () =>
+        {
+            await LoadTests();
+        });
     }
 
     private async Task LoadTests()
