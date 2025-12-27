@@ -192,6 +192,21 @@ The PWA features will be more apparent when deployed to a web server with HTTPS.
 - File uploads are stored in the `uploads` folder
 - All projects use C# 12 with nullable reference types enabled
 
+## License
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License**.
+
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+
+### What this means:
+
+- ✅ **You can** use, modify, and share this code
+- ✅ **You must** give appropriate credit
+- ❌ **You cannot** use this code for commercial purposes
+- ✅ **You must** share derivatives under the same license
+
+For the full license terms, see [LICENSE.md](LICENSE.md) or visit the [Creative Commons website](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
 ## Ready to Continue?
 
 Phase 1 provides a solid foundation with:
