@@ -6,6 +6,7 @@
 @inject CustomAuthStateProvider AuthStateProvider
 @inject HttpClient Http
 @inject IToastService ToastService
+@inject TestStateService TestStateService
 @implements IDisposable
 
 <AuthorizeView>
@@ -325,28 +326,42 @@
     protected override async Task OnInitializedAsync()
     {
         currentUser = AuthStateProvider.GetCurrentUser();
-        
+
         // Only load tests if user is authenticated
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated == true)
         {
             await LoadTests();
         }
-        
+
         Navigation.LocationChanged += OnLocationChanged;
+        TestStateService.OnTestChanged += OnTestChanged;
         UpdateCurrentTestId();
     }
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         UpdateCurrentTestId();
-        
+
         // Only load tests if user is authenticated
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated == true)
         {
             await LoadTests();
         }
+    }
+
+    private async void OnTestChanged()
+    {
+        // Use InvokeAsync to ensure we're on the component's synchronization context
+        await InvokeAsync(async () =>
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                await LoadTests();
+            }
+        });
     }
 
     private void UpdateCurrentTestId()
@@ -485,5 +500,6 @@
     public void Dispose()
     {
         Navigation.LocationChanged -= OnLocationChanged;
+        TestStateService.OnTestChanged -= OnTestChanged;
     }
 }
