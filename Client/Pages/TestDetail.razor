@@ -11,6 +11,7 @@
 @inject IDocumentService DocumentService
 @inject ContentGenerationService ContentService
 @inject NavigationManager Navigation
+@inject TestStateService TestStateService
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject IToastService ToastService
@@ -803,6 +804,7 @@ else
 
             await TestService.UpdateTestAsync(TestId, request);
             test.Name = editedName;
+            TestStateService.NotifyTestChanged(); // Notify menu to refresh
         }
 
         isEditingName = false;
@@ -1258,6 +1260,7 @@ else
                     lastFailedNamingReason = null;
                     uploadStatus = $"Test renamed to: {suggestedName}";
                     StateHasChanged(); // Update UI to show new name immediately
+                    TestStateService.NotifyTestChanged(); // Notify menu to refresh
                 }
                 else
                 {

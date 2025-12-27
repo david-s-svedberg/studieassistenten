@@ -43,6 +43,7 @@ public class TestDetailPageTests : TestContext
         Services.AddSingleton(_contentService);
         Services.AddSingleton(_mockToastService.Object);
         Services.AddSingleton(_mockTestShareService.Object);
+        Services.AddSingleton(new TestStateService()); // Add TestStateService
 
         // Add IJSRuntime mock
         Services.AddSingleton<IJSRuntime>(new Mock<IJSRuntime>().Object);

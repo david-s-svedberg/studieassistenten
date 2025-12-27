@@ -4,6 +4,7 @@
 @inject ITestService TestService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject TestStateService TestStateService
 @implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
@@ -99,6 +100,13 @@
     {
         await LogToConsole("[NavMenu] OnInitializedAsync called");
         NavigationManager.LocationChanged += OnLocationChanged;
+        TestStateService.OnTestChanged += OnTestChanged;
+        await LoadTests();
+    }
+
+    private async void OnTestChanged()
+    {
+        await LogToConsole("[NavMenu] OnTestChanged event received, reloading tests");
         await LoadTests();
     }
 
@@ -160,5 +168,6 @@
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+        TestStateService.OnTestChanged -= OnTestChanged;
     }
 }

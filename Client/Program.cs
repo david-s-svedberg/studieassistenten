@@ -30,5 +30,6 @@ builder.Services.AddScoped<ITestShareService, TestShareService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ContentGenerationService>();
 builder.Services.AddScoped<IToastService, ToastService>();
+builder.Services.AddSingleton<TestStateService>(); // Singleton to share state across components
 
 await builder.Build().RunAsync();
