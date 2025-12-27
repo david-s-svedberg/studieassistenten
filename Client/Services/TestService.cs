@@ -7,8 +7,8 @@ namespace StudieAssistenten.Client.Services;
 public interface ITestService
 {
     Task<TestDto?> CreateTestAsync(CreateTestRequest request);
-    Task<List<TestDto>> GetAllTestsAsync();
-    Task<TestDto?> GetTestAsync(int testId);
+    Task<List<TestListDto>> GetAllTestsAsync();
+    Task<TestDetailDto?> GetTestAsync(int testId);
     Task<bool> UpdateTestAsync(int testId, CreateTestRequest request);
     Task<bool> DeleteTestAsync(int testId);
     Task<string?> SuggestTestNameAsync(int testId);
@@ -47,26 +47,26 @@ public class TestService : ITestService
         }
     }
 
-    public async Task<List<TestDto>> GetAllTestsAsync()
+    public async Task<List<TestListDto>> GetAllTestsAsync()
     {
         try
         {
-            var tests = await _http.GetFromJsonAsync<List<TestDto>>("api/tests");
+            var tests = await _http.GetFromJsonAsync<List<TestListDto>>("api/tests");
             _logger.LogInformation("Retrieved {TestCount} tests", tests?.Count ?? 0);
-            return tests ?? new List<TestDto>();
+            return tests ?? new List<TestListDto>();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving tests");
-            return new List<TestDto>();
+            return new List<TestListDto>();
         }
     }
 
-    public async Task<TestDto?> GetTestAsync(int testId)
+    public async Task<TestDetailDto?> GetTestAsync(int testId)
     {
         try
         {
-            var test = await _http.GetFromJsonAsync<TestDto>($"api/tests/{testId}");
+            var test = await _http.GetFromJsonAsync<TestDetailDto>($"api/tests/{testId}");
             if (test != null)
             {
                 _logger.LogInformation("Retrieved test {TestId}: {TestName}", testId, test.Name);

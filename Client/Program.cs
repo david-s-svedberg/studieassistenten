@@ -26,6 +26,7 @@ builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
 
 // Register application services
 builder.Services.AddScoped<ITestService, TestService>();
+builder.Services.AddScoped<ITestShareService, TestShareService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ContentGenerationService>();
 builder.Services.AddScoped<IToastService, ToastService>();

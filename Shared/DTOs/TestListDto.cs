@@ -13,4 +13,7 @@ public class TestListDto
     public int DocumentCount { get; set; }
     public int TotalCharacters { get; set; }
     public bool HasGeneratedContent { get; set; }
+    public bool IsOwner { get; set; }
+    public int ShareCount { get; set; }
+    public UserDto? Owner { get; set; }
 }

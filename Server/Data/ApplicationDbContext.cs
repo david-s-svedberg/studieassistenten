@@ -19,6 +19,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Flashcard> Flashcards => Set<Flashcard>();
     public DbSet<Test> Tests => Set<Test>();
     public DbSet<UsageTracking> UsageTrackings => Set<UsageTracking>();
+    public DbSet<TestShare> TestShares => Set<TestShare>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +36,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasMany(e => e.Tests)
                 .WithOne(e => e.User)
                 .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Relationship with TestShares (as owner)
+            entity.HasMany(e => e.TestSharesCreated)
+                .WithOne(e => e.Owner)
+                .HasForeignKey(e => e.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Relationship with TestShares (as recipient)
+            entity.HasMany(e => e.SharedTests)
+                .WithOne(e => e.SharedWithUser)
+                .HasForeignKey(e => e.SharedWithUserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -87,6 +100,29 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithOne(e => e.Test)
                 .HasForeignKey(e => e.TestId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // Relationship with TestShares
+            entity.HasMany(e => e.Shares)
+                .WithOne(e => e.Test)
+                .HasForeignKey(e => e.TestId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure TestShare
+        modelBuilder.Entity<TestShare>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TestId).IsRequired();
+            entity.Property(e => e.OwnerId).IsRequired();
+            entity.Property(e => e.SharedWithUserId).IsRequired();
+            entity.Property(e => e.SharedAt).IsRequired();
+            entity.Property(e => e.Permission).IsRequired().HasDefaultValue(StudieAssistenten.Shared.Enums.SharePermission.Read);
+
+            // Unique constraint: Cannot share same test twice with same user (while active)
+            // This allows multiple users to have the same test shared with them
+            entity.HasIndex(e => new { e.TestId, e.SharedWithUserId })
+                .IsUnique()
+                .HasFilter("RevokedAt IS NULL"); // Only active shares must be unique
         });
 
         // Configure UsageTracking

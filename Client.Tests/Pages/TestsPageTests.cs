@@ -32,7 +32,7 @@ public class TestsPageTests : TestContext
     public void Page_WhenLoading_DisplaysSpinner()
     {
         // Arrange
-        var tcs = new TaskCompletionSource<List<TestDto>>();
+        var tcs = new TaskCompletionSource<List<TestListDto>>();
         _mockTestService.Setup(s => s.GetAllTestsAsync())
             .Returns(tcs.Task);
 
@@ -50,7 +50,7 @@ public class TestsPageTests : TestContext
     {
         // Arrange
         _mockTestService.Setup(s => s.GetAllTestsAsync())
-            .ReturnsAsync(new List<TestDto>());
+            .ReturnsAsync(new List<TestListDto>());
 
         // Act
         var cut = RenderComponent<TestsPage>();
@@ -66,9 +66,9 @@ public class TestsPageTests : TestContext
     public async Task Page_WithTests_DisplaysTestCards()
     {
         // Arrange
-        var testData = new List<TestDto>
+        var testData = new List<TestListDto>
         {
-            new TestDto
+            new TestListDto
             {
                 Id = 1,
                 Name = "Math Test",
@@ -78,7 +78,7 @@ public class TestsPageTests : TestContext
                 HasGeneratedContent = true,
                 CreatedAt = DateTime.UtcNow.AddDays(-2)
             },
-            new TestDto
+            new TestListDto
             {
                 Id = 2,
                 Name = "History Test",
@@ -114,7 +114,7 @@ public class TestsPageTests : TestContext
     {
         // Arrange
         _mockTestService.Setup(s => s.GetAllTestsAsync())
-            .ReturnsAsync(new List<TestDto>());
+            .ReturnsAsync(new List<TestListDto>());
 
         var cut = RenderComponent<TestsPage>();
         await Task.Delay(50);
@@ -134,7 +134,7 @@ public class TestsPageTests : TestContext
     {
         // Arrange
         _mockTestService.Setup(s => s.GetAllTestsAsync())
-            .ReturnsAsync(new List<TestDto>());
+            .ReturnsAsync(new List<TestListDto>());
 
         var createdTest = new TestDto
         {
@@ -180,7 +180,7 @@ public class TestsPageTests : TestContext
     {
         // Arrange
         _mockTestService.Setup(s => s.GetAllTestsAsync())
-            .ReturnsAsync(new List<TestDto>());
+            .ReturnsAsync(new List<TestListDto>());
 
         var cut = RenderComponent<TestsPage>();
         await Task.Delay(50);
@@ -198,14 +198,13 @@ public class TestsPageTests : TestContext
     public async Task EditButton_WhenClicked_ShowsEditDialogWithPrefilledData()
     {
         // Arrange
-        var testData = new List<TestDto>
+        var testData = new List<TestListDto>
         {
-            new TestDto
+            new TestListDto
             {
                 Id = 1,
                 Name = "Existing Test",
                 Description = "Test description",
-                Instructions = "Test instructions",
                 DocumentCount = 2,
                 CreatedAt = DateTime.UtcNow
             }
@@ -233,9 +232,9 @@ public class TestsPageTests : TestContext
     public async Task DeleteButton_WhenClicked_CallsDeleteService()
     {
         // Arrange
-        var testData = new List<TestDto>
+        var testData = new List<TestListDto>
         {
-            new TestDto
+            new TestListDto
             {
                 Id = 1,
                 Name = "Test to Delete",
@@ -268,9 +267,9 @@ public class TestsPageTests : TestContext
     public async Task ViewButton_WhenClicked_NavigatesToTestDetail()
     {
         // Arrange
-        var testData = new List<TestDto>
+        var testData = new List<TestListDto>
         {
-            new TestDto
+            new TestListDto
             {
                 Id = 42,
                 Name = "Test to View",
@@ -298,7 +297,7 @@ public class TestsPageTests : TestContext
     {
         // Arrange
         _mockTestService.Setup(s => s.GetAllTestsAsync())
-            .ReturnsAsync(new List<TestDto>());
+            .ReturnsAsync(new List<TestListDto>());
 
         var cut = RenderComponent<TestsPage>();
         await Task.Delay(50);
@@ -322,9 +321,9 @@ public class TestsPageTests : TestContext
     public async Task Page_WithLargeCharacterCount_FormatsCorrectly()
     {
         // Arrange
-        var testData = new List<TestDto>
+        var testData = new List<TestListDto>
         {
-            new TestDto
+            new TestListDto
             {
                 Id = 1,
                 Name = "Large Test",

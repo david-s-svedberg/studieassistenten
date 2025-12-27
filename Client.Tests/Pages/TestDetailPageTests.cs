@@ -22,6 +22,7 @@ public class TestDetailPageTests : TestContext
     private readonly Mock<IDocumentService> _mockDocumentService;
     private readonly ContentGenerationService _contentService;
     private readonly Mock<IToastService> _mockToastService;
+    private readonly Mock<ITestShareService> _mockTestShareService;
     private readonly FakeNavigationManager _fakeNavigation;
 
     public TestDetailPageTests()
@@ -29,6 +30,7 @@ public class TestDetailPageTests : TestContext
         _mockTestService = new Mock<ITestService>();
         _mockDocumentService = new Mock<IDocumentService>();
         _mockToastService = new Mock<IToastService>();
+        _mockTestShareService = new Mock<ITestShareService>();
 
         // Create ContentGenerationService with mocked dependencies
         var mockHttpClient = new HttpClient(new MockHttpMessageHandler());
@@ -40,6 +42,7 @@ public class TestDetailPageTests : TestContext
         Services.AddSingleton(_mockDocumentService.Object);
         Services.AddSingleton(_contentService);
         Services.AddSingleton(_mockToastService.Object);
+        Services.AddSingleton(_mockTestShareService.Object);
 
         // Add IJSRuntime mock
         Services.AddSingleton<IJSRuntime>(new Mock<IJSRuntime>().Object);
@@ -66,7 +69,7 @@ public class TestDetailPageTests : TestContext
     public void Page_WhenLoading_DisplaysSpinner()
     {
         // Arrange
-        var tcs = new TaskCompletionSource<TestDto?>();
+        var tcs = new TaskCompletionSource<TestDetailDto?>();
         _mockTestService.Setup(s => s.GetTestAsync(It.IsAny<int>()))
             .Returns(tcs.Task);
 
@@ -84,7 +87,7 @@ public class TestDetailPageTests : TestContext
     {
         // Arrange
         _mockTestService.Setup(s => s.GetTestAsync(It.IsAny<int>()))
-            .ReturnsAsync((TestDto?)null);
+            .ReturnsAsync((TestDetailDto?)null);
 
         // Act
         var cut = RenderComponent<TestDetailPage>(parameters => parameters
@@ -101,13 +104,14 @@ public class TestDetailPageTests : TestContext
     public async Task Page_WhenTestLoaded_DisplaysTestName()
     {
         // Arrange
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             Description = "Test description",
             DocumentCount = 0,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -129,13 +133,14 @@ public class TestDetailPageTests : TestContext
     public async Task Page_WhenTestHasDescription_DisplaysDescription()
     {
         // Arrange
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             Description = "This is a test description",
             DocumentCount = 0,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -156,13 +161,14 @@ public class TestDetailPageTests : TestContext
     public async Task Page_WhenNoDocuments_DisplaysEmptyState()
     {
         // Arrange
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             DocumentCount = 0,
-            Documents = new List<DocumentDto>(),
-            CreatedAt = DateTime.UtcNow
+            Documents = new List<DocumentSummaryDto>(),
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -184,6 +190,26 @@ public class TestDetailPageTests : TestContext
     public async Task Page_WhenHasDocuments_DisplaysDocumentCards()
     {
         // Arrange
+        var documentSummaries = new List<DocumentSummaryDto>
+        {
+            new DocumentSummaryDto
+            {
+                Id = 1,
+                FileName = "document1.pdf",
+                FileSizeBytes = 1024000,
+                Status = DocumentStatus.OcrCompleted,
+                TestId = 1
+            },
+            new DocumentSummaryDto
+            {
+                Id = 2,
+                FileName = "document2.jpg",
+                FileSizeBytes = 512000,
+                Status = DocumentStatus.OcrCompleted,
+                TestId = 1
+            }
+        };
+
         var documents = new List<DocumentDto>
         {
             new DocumentDto
@@ -204,13 +230,14 @@ public class TestDetailPageTests : TestContext
             }
         };
 
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             DocumentCount = 2,
-            Documents = documents,
-            CreatedAt = DateTime.UtcNow
+            Documents = documentSummaries,
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -252,13 +279,14 @@ public class TestDetailPageTests : TestContext
             }
         };
 
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             DocumentCount = 1,
-            Documents = new List<DocumentDto>(),
-            CreatedAt = DateTime.UtcNow
+            Documents = new List<DocumentSummaryDto>(),
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -283,6 +311,17 @@ public class TestDetailPageTests : TestContext
     public async Task GenerateFlashcardsButton_WhenClicked_ShowsFlashcardDialog()
     {
         // Arrange
+        var documentSummaries = new List<DocumentSummaryDto>
+        {
+            new DocumentSummaryDto
+            {
+                Id = 1,
+                FileName = "doc.pdf",
+                Status = DocumentStatus.OcrCompleted,
+                TestId = 1
+            }
+        };
+
         var documents = new List<DocumentDto>
         {
             new DocumentDto
@@ -295,13 +334,14 @@ public class TestDetailPageTests : TestContext
             }
         };
 
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             DocumentCount = 1,
-            Documents = documents,
-            CreatedAt = DateTime.UtcNow
+            Documents = documentSummaries,
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -328,6 +368,17 @@ public class TestDetailPageTests : TestContext
     public async Task GeneratePracticeTestButton_WhenClicked_ShowsPracticeTestDialog()
     {
         // Arrange
+        var documentSummaries = new List<DocumentSummaryDto>
+        {
+            new DocumentSummaryDto
+            {
+                Id = 1,
+                FileName = "doc.pdf",
+                Status = DocumentStatus.OcrCompleted,
+                TestId = 1
+            }
+        };
+
         var documents = new List<DocumentDto>
         {
             new DocumentDto
@@ -340,13 +391,14 @@ public class TestDetailPageTests : TestContext
             }
         };
 
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             DocumentCount = 1,
-            Documents = documents,
-            CreatedAt = DateTime.UtcNow
+            Documents = documentSummaries,
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -373,6 +425,17 @@ public class TestDetailPageTests : TestContext
     public async Task GenerateSummaryButton_WhenClicked_ShowsSummaryDialog()
     {
         // Arrange
+        var documentSummaries = new List<DocumentSummaryDto>
+        {
+            new DocumentSummaryDto
+            {
+                Id = 1,
+                FileName = "doc.pdf",
+                Status = DocumentStatus.OcrCompleted,
+                TestId = 1
+            }
+        };
+
         var documents = new List<DocumentDto>
         {
             new DocumentDto
@@ -385,13 +448,14 @@ public class TestDetailPageTests : TestContext
             }
         };
 
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             DocumentCount = 1,
-            Documents = documents,
-            CreatedAt = DateTime.UtcNow
+            Documents = documentSummaries,
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -418,13 +482,14 @@ public class TestDetailPageTests : TestContext
     public async Task UploadModeSwitch_WhenClickingTextTab_ShowsTextInput()
     {
         // Arrange
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             DocumentCount = 0,
-            Documents = new List<DocumentDto>(),
-            CreatedAt = DateTime.UtcNow
+            Documents = new List<DocumentSummaryDto>(),
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))
@@ -451,13 +516,14 @@ public class TestDetailPageTests : TestContext
     public async Task GenerationButtons_WhenNoDocuments_AreNotVisible()
     {
         // Arrange
-        var test = new TestDto
+        var test = new TestDetailDto
         {
             Id = 1,
             Name = "My Test",
             DocumentCount = 0,
-            Documents = new List<DocumentDto>(),
-            CreatedAt = DateTime.UtcNow
+            Documents = new List<DocumentSummaryDto>(),
+            CreatedAt = DateTime.UtcNow,
+            IsOwner = true
         };
 
         _mockTestService.Setup(s => s.GetTestAsync(1))

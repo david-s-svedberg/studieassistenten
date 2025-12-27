@@ -96,6 +96,14 @@ a, .btn-link {
     background-color: #343541;
 }
 
+.test-item.shared {
+    opacity: 0.85;
+}
+
+.test-item.shared .test-name {
+    font-style: italic;
+}
+
 .test-item-content {
     flex: 1;
     min-width: 0;

@@ -20,4 +20,10 @@ public class Test
     public ApplicationUser? User { get; set; }
     public List<StudyDocument> Documents { get; set; } = new();
     public List<GeneratedContent> GeneratedContents { get; set; } = new();
+
+    /// <summary>
+    /// Share relationships for this test.
+    /// A test can be shared with multiple users (one-to-many).
+    /// </summary>
+    public List<TestShare> Shares { get; set; } = new();
 }

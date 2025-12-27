@@ -12,7 +12,7 @@ public interface ITestService
     Task<List<TestListDto>> GetAllTestsListAsync(string userId);
     Task<PagedResultDto<TestListDto>> GetAllTestsListPagedAsync(string userId, int pageNumber, int pageSize);
     Task<TestDto?> GetTestAsync(int testId, string? userId = null);
-    Task<TestDetailDto?> GetTestDetailAsync(int testId, string userId);
+    Task<TestDetailDto?> GetTestDetailAsync(int testId, string? userId = null);
     Task<bool> UpdateTestAsync(int testId, CreateTestRequest request, string userId);
     Task<bool> DeleteTestAsync(int testId, string userId);
 }
@@ -59,13 +59,22 @@ public class TestService : ITestService
 
     public async Task<List<TestListDto>> GetAllTestsListAsync(string userId)
     {
-        var tests = await _repository.GetAllWithDocumentsAsync(userId);
-        return _mapper.Map<List<TestListDto>>(tests);
+        var tests = await _repository.GetAllWithSharedAsync(userId);
+        var testDtos = _mapper.Map<List<TestListDto>>(tests);
+
+        // Set IsOwner flag for each test
+        foreach (var dto in testDtos)
+        {
+            var test = tests.First(t => t.Id == dto.Id);
+            dto.IsOwner = test.UserId == userId;
+        }
+
+        return testDtos;
     }
 
     public async Task<PagedResultDto<TestListDto>> GetAllTestsListPagedAsync(string userId, int pageNumber, int pageSize)
     {
-        var allTests = await _repository.GetAllWithDocumentsAsync(userId);
+        var allTests = await _repository.GetAllWithSharedAsync(userId);
         var totalCount = allTests.Count;
 
         var pagedTests = allTests
@@ -76,6 +85,13 @@ public class TestService : ITestService
 
         var items = _mapper.Map<List<TestListDto>>(pagedTests);
 
+        // Set IsOwner flag for each test
+        foreach (var dto in items)
+        {
+            var test = pagedTests.First(t => t.Id == dto.Id);
+            dto.IsOwner = test.UserId == userId;
+        }
+
         return new PagedResultDto<TestListDto>(items, totalCount, pageNumber, pageSize);
     }
 
@@ -85,7 +101,7 @@ public class TestService : ITestService
         return test != null ? _mapper.Map<TestDto>(test) : null;
     }
 
-    public async Task<TestDetailDto?> GetTestDetailAsync(int testId, string userId)
+    public async Task<TestDetailDto?> GetTestDetailAsync(int testId, string? userId = null)
     {
         var test = await _repository.GetByIdWithDocumentsAsync(testId, userId);
         return test != null ? _mapper.Map<TestDetailDto>(test) : null;

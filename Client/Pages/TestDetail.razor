@@ -7,6 +7,7 @@
 @using static StudieAssistenten.Client.Shared.PracticeTestOptionsDialog
 @using static StudieAssistenten.Client.Shared.SummaryOptionsDialog
 @inject ITestService TestService
+@inject ITestShareService TestShareService
 @inject IDocumentService DocumentService
 @inject ContentGenerationService ContentService
 @inject NavigationManager Navigation
@@ -38,24 +39,48 @@ else
         <div class="test-header">
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div class="flex-grow-1">
-                    @if (isEditingName)
+                    @if (test.IsOwner && isEditingName)
                     {
                         <input type="text" class="form-control form-control-lg bg-dark text-light border-secondary"
                                @bind="editedName"
                                @onblur="SaveName"
                                @onkeydown="HandleNameKeyPress" />
                     }
-                    else
+                    else if (test.IsOwner)
                     {
                         <h1 class="test-title" @onclick="StartEditingName" style="cursor: pointer;" title="Click to edit">
                             @test.Name <i class="bi bi-pencil-fill ms-2" style="font-size: 1rem;"></i>
                         </h1>
+                    }
+                    else
+                    {
+                        <h1 class="test-title">@test.Name</h1>
                     }
                     @if (!string.IsNullOrEmpty(test.Description))
                     {
                         <p class="text-muted">@test.Description</p>
                     }
                 </div>
+                @if (test.IsOwner)
+                {
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" @onclick="ShowShareDialog" title="Share this test">
+                            <i class="bi bi-share me-1"></i>Share
+                        </button>
+                        @if (shareCount > 0)
+                        {
+                            <button class="btn btn-outline-info" @onclick="ShowManageSharesDialog" title="Manage shares">
+                                <i class="bi bi-people me-1"></i>@shareCount
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info mb-0" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
+                        <i class="bi bi-info-circle me-2"></i>This test has been shared with you (read-only)
+                    </div>
+                }
             </div>
 
             @if (!string.IsNullOrEmpty(test.Instructions))
@@ -93,8 +118,8 @@ else
             </div>
         }
 
-        @* 3. GENERATION BUTTONS (only if all documents have completed OCR) *@
-        @if (test.DocumentCount > 0 && documents.All(d => d.Status == DocumentStatus.OcrCompleted || !string.IsNullOrWhiteSpace(d.ExtractedText)))
+        @* 3. GENERATION BUTTONS (only if owner and all documents have completed OCR) *@
+        @if (test.IsOwner && test.DocumentCount > 0 && documents.All(d => d.Status == DocumentStatus.OcrCompleted || !string.IsNullOrWhiteSpace(d.ExtractedText)))
         {
             @if (isGenerating)
             {
@@ -141,39 +166,44 @@ else
             </div>
         }
 
-        @* 4. UPLOADED DOCUMENTS SECTION *@
-        @if (test.Documents != null && test.Documents.Any())
+        @* 4. UPLOADED DOCUMENTS SECTION (only for owners) *@
+        @if (test.IsOwner)
         {
-            <div class="documents-section mb-2">
-                <h3 class="mb-3">Uploaded Documents (@test.DocumentCount)</h3>
-                <div class="document-grid">
-                    @foreach (var doc in documents)
-                    {
-                        <div class="document-card" @onclick='() => ViewDocument(doc.Id)'>
-                            <div class="document-icon">
-                                <i class="bi @GetFileIcon(doc.FileName)"></i>
-                            </div>
-                            <div class="document-info">
-                                <div class="document-name">@doc.FileName</div>
-                                <div class="document-meta">
-                                    @FormatFileSize(doc.FileSizeBytes) • @doc.Status
+            @if (test.Documents != null && test.Documents.Any())
+            {
+                <div class="documents-section mb-2">
+                    <h3 class="mb-3">Uploaded Documents (@test.DocumentCount)</h3>
+                    <div class="document-grid">
+                        @foreach (var doc in documents)
+                        {
+                            <div class="document-card" @onclick='() => ViewDocument(doc.Id)'>
+                                <div class="document-icon">
+                                    <i class="bi @GetFileIcon(doc.FileName)"></i>
+                                </div>
+                                <div class="document-info">
+                                    <div class="document-name">@doc.FileName</div>
+                                    <div class="document-meta">
+                                        @FormatFileSize(doc.FileSizeBytes) • @doc.Status
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    }
+                        }
+                    </div>
                 </div>
-            </div>
-        }
-        else
-        {
-            <div class="no-documents-message mb-2">
-                <i class="bi bi-inbox" style="font-size: 2rem; color: #8e8ea0;"></i>
-                <p class="text-muted mt-2 mb-0">No documents uploaded yet. Upload your first document below!</p>
-            </div>
+            }
+            else
+            {
+                <div class="no-documents-message mb-2">
+                    <i class="bi bi-inbox" style="font-size: 2rem; color: #8e8ea0;"></i>
+                    <p class="text-muted mt-2 mb-0">No documents uploaded yet. Upload your first document below!</p>
+                </div>
+            }
         }
 
-        @* Upload Component - Always visible at bottom *@
-        <div class="upload-section mt-3">
+        @* Upload Component - Only for owners *@
+        @if (test.IsOwner)
+        {
+            <div class="upload-section mt-3">
             <h3>Add Content</h3>
 
             @* Tab Selector *@
@@ -302,7 +332,8 @@ else
                     </div>
                 </div>
             }
-        </div>
+            </div>
+        }
     </div>
 }
 
@@ -320,6 +351,16 @@ else
 @if (showSummaryDialog)
 {
     <SummaryOptionsDialog OnConfirm="HandleSummaryOptions" OnCancel="CloseDialogs" />
+}
+
+@if (showShareDialog)
+{
+    <ShareTestDialog OnConfirm="HandleShareTest" OnCancel="CloseDialogs" />
+}
+
+@if (showManageSharesDialog && test != null)
+{
+    <ManageSharesDialog TestId="test.Id" OnClose="CloseManageSharesDialog" OnShareRevoked="LoadShareCount" />
 }
 
 <style>
@@ -656,7 +697,7 @@ else
     [Parameter]
     public int TestId { get; set; }
 
-    private TestDto? test;
+    private TestDetailDto? test;
     private List<DocumentDto> documents = new();
     private List<GeneratedContentDto> generatedContents = new();
     private bool isLoading = true;
@@ -669,6 +710,11 @@ else
     private bool showFlashcardDialog = false;
     private bool showPracticeTestDialog = false;
     private bool showSummaryDialog = false;
+    private bool showShareDialog = false;
+    private bool showManageSharesDialog = false;
+
+    // Share state
+    private int shareCount = 0;
 
     // Upload state
     private List<IBrowserFile> selectedFiles = new();
@@ -704,6 +750,7 @@ else
     {
         await LoadTest();
         await LoadGeneratedContent();
+        await LoadShareCount();
     }
 
     private async Task LoadTest()
@@ -792,6 +839,64 @@ else
         showFlashcardDialog = false;
         showPracticeTestDialog = false;
         showSummaryDialog = false;
+        showShareDialog = false;
+    }
+
+    // Share management
+    private void ShowShareDialog()
+    {
+        showShareDialog = true;
+    }
+
+    private void ShowManageSharesDialog()
+    {
+        showManageSharesDialog = true;
+    }
+
+    private void CloseManageSharesDialog()
+    {
+        showManageSharesDialog = false;
+    }
+
+    private async Task LoadShareCount()
+    {
+        if (test == null) return;
+
+        try
+        {
+            var shares = await TestShareService.GetSharesForTestAsync(test.Id);
+            shareCount = shares.Count;
+        }
+        catch (Exception ex)
+        {
+            // Silently fail - share count is not critical
+            Console.WriteLine($"Error loading share count: {ex.Message}");
+        }
+    }
+
+    private async Task HandleShareTest(string email)
+    {
+        CloseDialogs();
+
+        if (test == null) return;
+
+        var request = new CreateTestShareRequest
+        {
+            TestId = test.Id,
+            SharedWithEmail = email
+        };
+
+        var share = await TestShareService.ShareTestAsync(request);
+
+        if (share != null)
+        {
+            ToastService.ShowSuccess($"Test shared with {email}");
+            await LoadShareCount();
+        }
+        else
+        {
+            ToastService.ShowError("Failed to share test. User may not exist or test is already shared with them.");
+        }
     }
 
     private async Task HandleFlashcardOptions(FlashcardOptions options)
@@ -1204,8 +1309,7 @@ else
             if (updatedTest?.Documents != null)
             {
                 var completedDocs = updatedTest.Documents.Count(d =>
-                    d.Status == DocumentStatus.OcrCompleted ||
-                    !string.IsNullOrWhiteSpace(d.ExtractedText));
+                    d.Status == DocumentStatus.OcrCompleted);
 
                 if (completedDocs > 0)
                 {

@@ -29,4 +29,14 @@ public class ApplicationUser : IdentityUser
 
     // Navigation properties
     public ICollection<Test> Tests { get; set; } = new List<Test>();
+
+    /// <summary>
+    /// Tests that this user has shared with others
+    /// </summary>
+    public ICollection<TestShare> TestSharesCreated { get; set; } = new List<TestShare>();
+
+    /// <summary>
+    /// Tests that have been shared with this user by others
+    /// </summary>
+    public ICollection<TestShare> SharedTests { get; set; } = new List<TestShare>();
 }

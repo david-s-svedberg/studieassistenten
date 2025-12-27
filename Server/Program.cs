@@ -151,6 +151,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, StudieAssistenten.Server.Authorization.TestAuthorizationHandler>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, StudieAssistenten.Server.Authorization.DocumentAuthorizationHandler>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, StudieAssistenten.Server.Authorization.GeneratedContentAuthorizationHandler>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, StudieAssistenten.Server.Authorization.TestShareAuthorizationHandler>();
 
 // Register AutoMapper
 builder.Services.AddAutoMapper(typeof(Program));
@@ -159,6 +160,7 @@ builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.ITestRepository, StudieAssistenten.Server.Infrastructure.Repositories.TestRepository>();
 builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.IDocumentRepository, StudieAssistenten.Server.Infrastructure.Repositories.DocumentRepository>();
 builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.IGeneratedContentRepository, StudieAssistenten.Server.Infrastructure.Repositories.GeneratedContentRepository>();
+builder.Services.AddScoped<StudieAssistenten.Server.Infrastructure.Repositories.ITestShareRepository, StudieAssistenten.Server.Infrastructure.Repositories.TestShareRepository>();
 
 // Register infrastructure services
 builder.Services.AddSingleton<StudieAssistenten.Server.Infrastructure.Storage.IFileStorage, StudieAssistenten.Server.Infrastructure.Storage.LocalFileStorage>();
@@ -166,6 +168,7 @@ builder.Services.AddSingleton<StudieAssistenten.Server.Infrastructure.Storage.IF
 // Register application services
 builder.Services.AddSingleton<IEmailWhitelistService, EmailWhitelistService>();
 builder.Services.AddScoped<ITestService, TestService>();
+builder.Services.AddScoped<ITestShareService, TestShareService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IFileValidationService, FileValidationService>();
 builder.Services.AddScoped<IOcrService, AzureComputerVisionOcrService>();

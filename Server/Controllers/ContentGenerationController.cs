@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using StudieAssistenten.Server.Authorization;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Server.Services;
 using StudieAssistenten.Shared.DTOs;
@@ -22,6 +23,7 @@ public class ContentGenerationController : BaseApiController
     private readonly IPracticeTestPdfGenerationService _practiceTestPdfService;
     private readonly ISummaryPdfGenerationService _summaryPdfService;
     private readonly IMapper _mapper;
+    private readonly IAuthorizationService _authorizationService;
     private readonly ILogger<ContentGenerationController> _logger;
 
     public ContentGenerationController(
@@ -31,6 +33,7 @@ public class ContentGenerationController : BaseApiController
         IPracticeTestPdfGenerationService practiceTestPdfService,
         ISummaryPdfGenerationService summaryPdfService,
         IMapper mapper,
+        IAuthorizationService authorizationService,
         ILogger<ContentGenerationController> logger)
     {
         _aiService = aiService;
@@ -39,6 +42,7 @@ public class ContentGenerationController : BaseApiController
         _practiceTestPdfService = practiceTestPdfService;
         _summaryPdfService = summaryPdfService;
         _mapper = mapper;
+        _authorizationService = authorizationService;
         _logger = logger;
     }
 
@@ -160,23 +164,30 @@ public class ContentGenerationController : BaseApiController
     /// <returns>List of all generated content (flashcards, tests, summaries) for the test</returns>
     /// <response code="200">Returns list of generated content</response>
     /// <response code="401">User not authenticated</response>
-    /// <response code="404">Test not found or user doesn't own it</response>
+    /// <response code="403">User doesn't have access to this test</response>
+    /// <response code="404">Test not found</response>
     [HttpGet("test/{testId}")]
     [ProducesResponseType(typeof(List<GeneratedContentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTestGeneratedContent(int testId)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
+        // Fetch the test first
+        var test = await _context.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null)
         {
-            return Unauthorized();
+            return NotFound($"Test with ID {testId} not found");
         }
 
-        // Verify test ownership
-        var test = await _context.Tests.FirstOrDefaultAsync(t => t.Id == testId);
-        var ownershipCheck = VerifyTestOwnership(test, userId);
-        if (ownershipCheck != null) return ownershipCheck;
+        // Check authorization - allows both owners and shared users with Read permission
+        var authResult = await _authorizationService.AuthorizeAsync(
+            User, test, ResourceOperations.Read);
+
+        if (!authResult.Succeeded)
+        {
+            return Forbid();
+        }
 
         // Get all generated content for this test
         var contents = await _context.GeneratedContents
@@ -199,11 +210,13 @@ public class ContentGenerationController : BaseApiController
     /// <response code="200">Returns paginated generated content</response>
     /// <response code="400">Invalid pagination parameters</response>
     /// <response code="401">User not authenticated</response>
-    /// <response code="404">Test not found or user doesn't own it</response>
+    /// <response code="403">User doesn't have access to this test</response>
+    /// <response code="404">Test not found</response>
     [HttpGet("test/{testId}/paged")]
     [ProducesResponseType(typeof(PagedResultDto<GeneratedContentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTestGeneratedContentPaged(
         int testId,
@@ -221,16 +234,21 @@ public class ContentGenerationController : BaseApiController
             return BadRequestError("Page size must be between 1 and 100");
         }
 
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
+        // Fetch the test first
+        var test = await _context.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null)
         {
-            return Unauthorized();
+            return NotFound($"Test with ID {testId} not found");
         }
 
-        // Verify test ownership
-        var test = await _context.Tests.FirstOrDefaultAsync(t => t.Id == testId);
-        var ownershipCheck = VerifyTestOwnership(test, userId);
-        if (ownershipCheck != null) return ownershipCheck;
+        // Check authorization - allows both owners and shared users with Read permission
+        var authResult = await _authorizationService.AuthorizeAsync(
+            User, test, ResourceOperations.Read);
+
+        if (!authResult.Succeeded)
+        {
+            return Forbid();
+        }
 
         // Get total count
         var totalCount = await _context.GeneratedContents
@@ -259,20 +277,16 @@ public class ContentGenerationController : BaseApiController
     /// <returns>The generated content details</returns>
     /// <response code="200">Returns the generated content</response>
     /// <response code="401">User not authenticated</response>
-    /// <response code="404">Content not found or user doesn't own it</response>
+    /// <response code="403">User doesn't have access to this content</response>
+    /// <response code="404">Content not found</response>
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(GeneratedContentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetContent(int id)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        // Get content and verify ownership via Test relationship
+        // Get content with test relationship
         var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Include(gc => gc.Test)
@@ -280,8 +294,19 @@ public class ContentGenerationController : BaseApiController
                 .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        var ownershipCheck = VerifyContentOwnership(content, userId);
-        if (ownershipCheck != null) return ownershipCheck;
+        if (content == null || content.Test == null)
+        {
+            return NotFound($"Generated content with ID {id} not found");
+        }
+
+        // Check authorization - allows both owners and shared users with Read permission
+        var authResult = await _authorizationService.AuthorizeAsync(
+            User, content.Test, ResourceOperations.Read);
+
+        if (!authResult.Succeeded)
+        {
+            return Forbid();
+        }
 
         return Ok(_mapper.Map<GeneratedContentDto>(content));
     }
@@ -334,23 +359,19 @@ public class ContentGenerationController : BaseApiController
     /// <response code="200">Returns the PDF file</response>
     /// <response code="400">Invalid content type or missing flashcards</response>
     /// <response code="401">User not authenticated</response>
-    /// <response code="404">Content not found or user doesn't own it</response>
+    /// <response code="403">User doesn't have access to this content</response>
+    /// <response code="404">Content not found</response>
     /// <response code="500">Error generating PDF</response>
     [HttpGet("{id}/pdf")]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DownloadPdf(int id)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        // Get content and verify ownership via Test relationship
+        // Get content with test relationship
         var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
             .Include(gc => gc.Test)
@@ -358,8 +379,19 @@ public class ContentGenerationController : BaseApiController
                 .ThenInclude(d => d!.Test)
             .FirstOrDefaultAsync(gc => gc.Id == id);
 
-        var ownershipCheck = VerifyContentOwnership(content, userId);
-        if (ownershipCheck != null) return ownershipCheck;
+        if (content == null || content.Test == null)
+        {
+            return NotFound($"Generated content with ID {id} not found");
+        }
+
+        // Check authorization - allows both owners and shared users with Read permission
+        var authResult = await _authorizationService.AuthorizeAsync(
+            User, content.Test, ResourceOperations.Read);
+
+        if (!authResult.Succeeded)
+        {
+            return Forbid();
+        }
 
         try
         {

@@ -133,6 +133,8 @@ public class TestsController : BaseApiController
     {
         try
         {
+            var currentUserId = GetCurrentUserId();
+
             // Fetch the resource first
             var test = await _testRepository.GetByIdAsync(id);
             if (test == null)
@@ -149,9 +151,14 @@ public class TestsController : BaseApiController
                 return Forbid();
             }
 
-            // Get detailed view
-            var userId = GetCurrentUserId();
-            var testDetail = await _testService.GetTestDetailAsync(id, userId);
+            // Get detailed view (authorization already checked above)
+            var testDetail = await _testService.GetTestDetailAsync(id);
+
+            if (testDetail != null)
+            {
+                // Set IsOwner based on current user
+                testDetail.IsOwner = test.UserId == currentUserId;
+            }
 
             return Ok(testDetail);
         }

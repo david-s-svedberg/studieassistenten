@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+using StudieAssistenten.Server.Data;
 using StudieAssistenten.Shared.Models;
 using System.Security.Claims;
 
@@ -7,32 +9,54 @@ namespace StudieAssistenten.Server.Authorization;
 
 /// <summary>
 /// Authorization handler for StudyDocument resources
+/// Checks both ownership and shared access
 /// </summary>
 public class DocumentAuthorizationHandler : AuthorizationHandler<OperationAuthorizationRequirement, StudyDocument>
 {
-    protected override Task HandleRequirementAsync(
+    private readonly ApplicationDbContext _context;
+
+    public DocumentAuthorizationHandler(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    protected override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         OperationAuthorizationRequirement requirement,
         StudyDocument resource)
     {
         if (context.User == null || resource == null)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        // User owns the document if they own the test it belongs to
+        // Check ownership - owners have full access
         if (resource.Test != null && resource.Test.UserId == userId)
         {
             context.Succeed(requirement);
+            return;
         }
 
-        return Task.CompletedTask;
+        // Check shared access - only for Read operations
+        if (requirement.Name == ResourceOperations.Read.Name && resource.TestId.HasValue)
+        {
+            var hasSharedAccess = await _context.TestShares
+                .AnyAsync(ts =>
+                    ts.TestId == resource.TestId.Value &&
+                    ts.SharedWithUserId == userId &&
+                    ts.RevokedAt == null);
+
+            if (hasSharedAccess)
+            {
+                context.Succeed(requirement);
+            }
+        }
     }
 }

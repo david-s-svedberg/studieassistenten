@@ -55,13 +55,29 @@
                                 </small>
                             </div>
                             
-                            @if (test.HasGeneratedContent)
-                            {
-                                <span class="badge bg-success mb-2">
-                                    <i class="bi bi-check-circle"></i> Has Generated Content
-                                </span>
-                            }
-                            
+                            <div class="d-flex gap-2 flex-wrap mb-2">
+                                @if (test.HasGeneratedContent)
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Has Generated Content
+                                    </span>
+                                }
+
+                                @if (!test.IsOwner)
+                                {
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-share"></i> Shared with you
+                                    </span>
+                                }
+
+                                @if (test.IsOwner && test.ShareCount > 0)
+                                {
+                                    <span class="badge bg-primary">
+                                        <i class="bi bi-people"></i> Shared with @test.ShareCount
+                                    </span>
+                                }
+                            </div>
+
                             <div class="d-flex gap-2 mt-3">
                                 <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => ViewTest(test.Id)" data-testid="view-test-button">
                                     <i class="bi bi-eye"></i> View
@@ -120,10 +136,10 @@
 }
 
 @code {
-    private List<TestDto> tests = new();
+    private List<TestListDto> tests = new();
     private bool isLoading = true;
     private bool showDialog = false;
-    private TestDto? editingTest = null;
+    private TestListDto? editingTest = null;
     
     private string testName = "";
     private string testDescription = "";
@@ -150,12 +166,12 @@
         showDialog = true;
     }
 
-    private void EditTest(TestDto test)
+    private void EditTest(TestListDto test)
     {
         editingTest = test;
         testName = test.Name;
         testDescription = test.Description ?? "";
-        testInstructions = test.Instructions ?? "";
+        testInstructions = "";  // TestListDto doesn't have Instructions
         showDialog = true;
     }
 
@@ -196,7 +212,7 @@
         }
     }
 
-    private async Task DeleteTest(TestDto test)
+    private async Task DeleteTest(TestListDto test)
     {
         if (confirm($"Are you sure you want to delete '{test.Name}'? Documents will not be deleted."))
         {

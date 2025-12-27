@@ -28,14 +28,20 @@ public class TestRepository : ITestRepository
         return await query.FirstOrDefaultAsync();
     }
 
-    public async Task<Test?> GetByIdWithDocumentsAsync(int id, string userId)
+    public async Task<Test?> GetByIdWithDocumentsAsync(int id, string? userId = null)
     {
-        return await _context.Tests
+        var query = _context.Tests
             .Include(t => t.Documents)
                 .ThenInclude(d => d.GeneratedContents)
             .AsSplitQuery()  // Use split query to avoid cartesian explosion
-            .Where(t => t.Id == id && t.UserId == userId)
-            .FirstOrDefaultAsync();
+            .Where(t => t.Id == id);
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            query = query.Where(t => t.UserId == userId);
+        }
+
+        return await query.FirstOrDefaultAsync();
     }
 
     public async Task<List<Test>> GetAllAsync(string userId)
@@ -87,5 +93,50 @@ public class TestRepository : ITestRepository
     {
         return await _context.Tests
             .AnyAsync(t => t.Id == testId && t.UserId == userId);
+    }
+
+    public async Task<List<Test>> GetAllWithSharedAsync(string userId)
+    {
+        // Get owned tests
+        var ownedTests = _context.Tests
+            .Where(t => t.UserId == userId);
+
+        // Get shared tests
+        var sharedTests = _context.Tests
+            .Where(t => t.Shares.Any(s => s.SharedWithUserId == userId && s.RevokedAt == null));
+
+        // Combine and return
+        return await ownedTests
+            .Union(sharedTests)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<Test>> GetSharedWithUserAsync(string userId)
+    {
+        return await _context.Tests
+            .Where(t => t.Shares.Any(s => s.SharedWithUserId == userId && s.RevokedAt == null))
+            .Include(t => t.User) // Include owner info
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<bool> UserCanAccessTestAsync(int testId, string userId)
+    {
+        // Check if user owns the test
+        var ownsTest = await _context.Tests
+            .AnyAsync(t => t.Id == testId && t.UserId == userId);
+
+        if (ownsTest)
+        {
+            return true;
+        }
+
+        // Check if test is shared with user
+        return await _context.TestShares
+            .AnyAsync(ts =>
+                ts.TestId == testId &&
+                ts.SharedWithUserId == userId &&
+                ts.RevokedAt == null);
     }
 }

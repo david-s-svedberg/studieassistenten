@@ -15,5 +15,6 @@ public class TestDto
     public int DocumentCount { get; set; }
     public int TotalCharacters { get; set; }
     public bool HasGeneratedContent { get; set; }
+    public bool IsOwner { get; set; }
     public List<DocumentDto> Documents { get; set; } = new();
 }

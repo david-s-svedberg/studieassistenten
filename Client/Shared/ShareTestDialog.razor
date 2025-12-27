@@ -1,0 +1,94 @@
+@* ShareTestDialog.razor *@
+<div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">
+                    <i class="bi bi-share me-2"></i>Share Test
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Email Address</label>
+                    <input type="email"
+                           class="form-control bg-dark text-light border-secondary"
+                           placeholder="user@example.com"
+                           @bind="email"
+                           @bind:event="oninput" />
+                    <small class="text-muted">Enter the email address of the user you want to share with</small>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        <i class="bi bi-exclamation-triangle me-2"></i>@errorMessage
+                    </div>
+                }
+
+                <div class="alert alert-info" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>
+                    The user will have <strong>read-only</strong> access to this test, including all documents and generated content.
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button"
+                        class="btn btn-primary"
+                        @onclick="OnConfirmClick"
+                        disabled="@(string.IsNullOrWhiteSpace(email) || isSharing)">
+                    @if (isSharing)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <span>Sharing...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-share me-2"></i>
+                        <span>Share Test</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<string> OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private string email = "";
+    private string errorMessage = "";
+    private bool isSharing = false;
+
+    private async Task OnConfirmClick()
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            errorMessage = "Please enter an email address";
+            return;
+        }
+
+        // Basic email validation
+        if (!email.Contains("@") || !email.Contains("."))
+        {
+            errorMessage = "Please enter a valid email address";
+            return;
+        }
+
+        errorMessage = "";
+        isSharing = true;
+
+        try
+        {
+            await OnConfirm.InvokeAsync(email.Trim());
+        }
+        finally
+        {
+            isSharing = false;
+        }
+    }
+}

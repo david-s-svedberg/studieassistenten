@@ -56,16 +56,28 @@
                         <div class="test-list">
                             @foreach (var test in tests)
                             {
-                                <div class="test-item @(IsActiveTest(test.Id) ? "active" : "")" @onclick="() => NavigateToTest(test.Id)">
+                                <div class="test-item @(IsActiveTest(test.Id) ? "active" : "") @(!test.IsOwner ? "shared" : "")" @onclick="() => NavigateToTest(test.Id)">
                                     <div class="test-item-content">
-                                        <div class="test-name">@test.Name</div>
-                                        <div class="test-meta">
-                                            <small>@test.DocumentCount docs</small>
+                                        <div class="test-name">
+                                            @if (!test.IsOwner)
+                                            {
+                                                <i class="bi bi-share me-1" style="font-size: 0.85em; opacity: 0.7;" title="Shared with you"></i>
+                                            }
+                                            @test.Name
                                         </div>
+                                        @if (!test.IsOwner)
+                                        {
+                                            <div class="test-meta">
+                                                <small>read-only</small>
+                                            </div>
+                                        }
                                     </div>
-                                    <button class="btn-delete" @onclick:stopPropagation="true" @onclick="() => DeleteTest(test.Id)" title="Delete test">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    @if (test.IsOwner)
+                                    {
+                                        <button class="btn-delete" @onclick:stopPropagation="true" @onclick="() => DeleteTest(test.Id)" title="Delete test">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    }
                                 </div>
                             }
                         </div>
@@ -304,7 +316,7 @@
 </style>
 
 @code {
-    private List<TestDto> tests = new();
+    private List<TestListDto> tests = new();
     private bool isLoadingTests = true;
     private int? currentTestId = null;
     private UserDto? currentUser;
