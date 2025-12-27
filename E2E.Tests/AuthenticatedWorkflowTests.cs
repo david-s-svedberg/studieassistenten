@@ -32,7 +32,8 @@ public class AuthenticatedWorkflowTests : IClassFixture<PlaywrightFixture>, IAsy
         }
     }
 
-    [Fact(Skip = "Requires running application - unskip when app is running")]
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task UserWorkflow_SignIn_NavigatesToTestsPage()
     {
         // Arrange - Navigate to home
@@ -53,7 +54,8 @@ public class AuthenticatedWorkflowTests : IClassFixture<PlaywrightFixture>, IAsy
         createButton.Should().NotBeNull("Authenticated user should see create test button");
     }
 
-    [Fact(Skip = "Requires running application - unskip when app is running")]
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task UserWorkflow_CreateTest_DisplaysInTestList()
     {
         // Arrange - Sign in and navigate to tests page
@@ -94,7 +96,8 @@ public class AuthenticatedWorkflowTests : IClassFixture<PlaywrightFixture>, IAsy
         pageContent.Should().Contain(testName, "The created test should appear in the list");
     }
 
-    [Fact(Skip = "Requires running application - unskip when app is running")]
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task UserWorkflow_CreateAndViewTest_NavigatesToTestDetail()
     {
         // Arrange - Sign in and navigate to tests page
@@ -133,7 +136,8 @@ public class AuthenticatedWorkflowTests : IClassFixture<PlaywrightFixture>, IAsy
         pageContent.Should().Contain(testName, "Test detail page should display the test name");
     }
 
-    [Fact(Skip = "Requires running application - unskip when app is running")]
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task UserWorkflow_TestDetailPage_DisplaysGenerationButtons()
     {
         // Arrange - Sign in and create a test
@@ -168,7 +172,8 @@ public class AuthenticatedWorkflowTests : IClassFixture<PlaywrightFixture>, IAsy
         // For now, we verify the buttons are correctly hidden
     }
 
-    [Fact(Skip = "Requires running application - unskip when app is running")]
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task UserWorkflow_DeleteTest_RemovesFromList()
     {
         // Arrange - Sign in and create a test

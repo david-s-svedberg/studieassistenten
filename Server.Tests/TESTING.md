@@ -1,6 +1,6 @@
 # StudieAssistenten Testing Strategy
 
-**Status:** Phase 2 Complete - Ready for Phase 3 (E2E Testing)
+**Status:** Phase 4 Complete - All Testing & CI/CD Infrastructure Complete
 **Date:** 2025-12-27
 **Approach:** Multi-layer testing pyramid with emphasis on integration tests
 
@@ -28,7 +28,7 @@ This document describes the comprehensive testing strategy for the StudieAssiste
 |-------|------|---------|----------------|--------|
 | **Integration** | xUnit + WebApplicationFactory | API endpoints with real DB, mocked external services | 60% | ✅ Complete (44 tests) |
 | **Component** | bUnit | Blazor component testing | 30% | ✅ Complete (54 tests) |
-| **End-to-End** | Playwright | Critical workflows in browser | 10% | 📋 Planned |
+| **End-to-End** | Playwright | Critical workflows in browser | 10% | ✅ Complete (8 tests) |
 
 ---
 
@@ -572,21 +572,25 @@ dotnet test --collect:"XPlat Code Coverage"
    - `LoginWorkflowTests`: Login page tests (3 tests)
    - `AuthenticatedWorkflowTests`: Full user workflow tests (6 tests)
    - `README.md`: Comprehensive E2E testing documentation
-6. ✅ **Critical workflow tests created** (9 total, skipped by default):
-   - User login page display and error handling
+6. ✅ **Critical workflow tests created** (8 total):
+   - User login page display and error handling (3 tests)
    - Sign in and navigate to tests page
    - Create test and verify in list
    - View test details
    - Verify generation buttons behavior
    - Delete test from list
-7. 📋 **Pending: Configure CI/CD** to run E2E tests
-8. 📋 **Pending: File upload E2E tests** (requires multipart form handling)
+7. ✅ **Configured trait-based test filtering**:
+   - All E2E tests marked with `[Trait("Category", "E2E")]`
+   - CI uses `--filter "Category=E2E"` instead of modifying source files
+   - Local execution: `dotnet test --filter "Category=E2E"`
+8. ✅ **CI/CD integration complete** with GitHub Actions
+9. 📋 **Pending: File upload E2E tests** (requires multipart form handling)
 
 **Success Criteria:**
 - ✅ Infrastructure complete (browsers, fixtures, test IDs)
-- ✅ 5-10 critical user workflows tested (9/10 tests created)
+- ✅ 5-10 critical user workflows tested (8/10 tests created)
 - ✅ Tests run in headless browser (configured and working)
-- 📋 Tests integrated into CI/CD pipeline (pending)
+- ✅ Tests integrated into CI/CD pipeline
 
 **Authentication Solution:**
 - ✅ **Implemented**: Test authentication endpoint (`/api/auth/test-signin`)
@@ -671,17 +675,16 @@ The project includes two GitHub Actions workflows that run automatically:
    - Disabled email whitelist
 4. Starts application in background
 5. Waits for server to be ready (max 60 seconds)
-6. Unskips E2E tests (removes `Skip` parameter via sed)
-7. Runs E2E tests
-8. Stops application
-9. Uploads test results and screenshots (on failure)
+6. Runs E2E tests using trait filtering: `--filter "Category=E2E"`
+7. Stops application
+8. Uploads test results and screenshots (on failure)
 
 **Key Features:**
 - Uses test authentication endpoint (`/api/auth/test-signin`)
 - Runs in headless Chromium
-- Automatically unskips tests for CI
+- Trait-based filtering (`Category=E2E`) - no source file modifications
 - Captures screenshots on failure
-- Publishes E2E test results
+- Publishes E2E test results in GitHub Actions summary
 
 ### Viewing Test Results
 

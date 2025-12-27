@@ -97,11 +97,8 @@ jobs:
     - name: Run E2E Tests
       run: |
         cd E2E.Tests
-        # Unskip all E2E tests for CI
-        sed -i 's/\[Fact(Skip = "Requires running application[^"]*")\]/[Fact]/g' LoginWorkflowTests.cs
-        sed -i 's/\[Fact(Skip = "Requires running application[^"]*")\]/[Fact]/g' AuthenticatedWorkflowTests.cs
-
-        dotnet test --no-build --configuration Debug --verbosity normal --logger "trx;LogFileName=e2e-tests.trx"
+        # Run only tests marked with [Trait("Category", "E2E")]
+        dotnet test --no-build --configuration Debug --verbosity normal --logger "trx;LogFileName=e2e-tests.trx" --filter "Category=E2E"
       env:
         ASPNETCORE_ENVIRONMENT: Development
 

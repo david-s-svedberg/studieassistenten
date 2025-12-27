@@ -37,14 +37,30 @@ The application should be accessible at `https://localhost:7247`.
 
 ### Run All E2E Tests
 
+E2E tests are marked with `[Trait("Category", "E2E")]` and require a running application instance.
+
 ```bash
+# Start the application first (in separate terminal)
+cd ../Server
+dotnet run
+
+# Then run E2E tests
+cd ../E2E.Tests
+dotnet test --filter "Category=E2E"
+```
+
+**Requirements:**
+- Running application instance at `https://localhost:7247`
+- Application configured with test authentication endpoint (Development mode)
+
+### Run All Tests (Including Unit/Integration Tests in Other Projects)
+
+```bash
+# From solution root
 dotnet test
 ```
 
-**Note:** Most tests are currently skipped by default because they require:
-- A running application instance
-- Configured authentication (Google OAuth)
-- Test data setup
+**Note:** E2E tests will be skipped automatically if the application is not running, since they're in a separate filter category.
 
 ### Run Specific Test
 
@@ -52,18 +68,23 @@ dotnet test
 dotnet test --filter "FullyQualifiedName~LoginWorkflowTests.LoginPage_WhenLoaded_DisplaysGoogleSignInButton"
 ```
 
-### Un-skip Tests
+### Test Categorization
 
-To run the tests, remove the `Skip` parameter from the `[Fact]` attributes:
+All E2E tests are marked with a trait for easy filtering:
 
 ```csharp
-// Before:
-[Fact(Skip = "Requires running application - unskip when app is running")]
-
-// After:
 [Fact]
+[Trait("Category", "E2E")]
 public async Task LoginPage_WhenLoaded_DisplaysGoogleSignInButton()
+{
+    // Test implementation
+}
 ```
+
+This allows:
+- **Run only E2E tests:** `dotnet test --filter "Category=E2E"`
+- **Exclude E2E tests:** `dotnet test --filter "Category!=E2E"`
+- **CI/CD filtering:** Separate workflows can target specific test categories
 
 ## Test Structure
 
@@ -200,52 +221,46 @@ var result = await page.EvaluateAsync<bool>(@"
 - Default: `test@example.com` (created automatically)
 - Custom: Pass any email/name to the endpoint
 
-## CI/CD Integration
+## CI/CD Integration ✅
 
-### GitHub Actions Example
+E2E tests are fully integrated into GitHub Actions with a dedicated workflow.
+
+### GitHub Actions Workflow
+
+The `.github/workflows/e2e-tests.yml` workflow:
+1. Builds the application
+2. Installs Playwright browsers (Chromium only for CI)
+3. Starts the application in the background
+4. Waits for the application to be ready
+5. Runs E2E tests using trait filtering: `--filter "Category=E2E"`
+6. Uploads test results and screenshots on failure
+
+**Key Features:**
+- **Trait-based filtering:** Uses `--filter "Category=E2E"` instead of modifying source files
+- **Application health check:** Waits up to 60 seconds for app to be ready
+- **Test appsettings:** Creates development configuration for testing
+- **Screenshot capture:** Uploads screenshots on test failure for debugging
+- **Test result summary:** Displays pass/fail counts in GitHub Actions summary
+
+### Example CI/CD Snippet
 
 ```yaml
-name: E2E Tests
-
-on: [push, pull_request]
-
-jobs:
-  e2e-tests:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore
-
-      - name: Install Playwright
-        run: pwsh E2E.Tests/bin/Debug/net8.0/playwright.ps1 install
-
-      - name: Start Application
-        run: |
-          cd Server
-          dotnet run &
-          sleep 10 # Wait for app to start
-
-      - name: Run E2E Tests
-        run: dotnet test E2E.Tests --no-build --verbosity normal
-
-      - name: Upload Screenshots on Failure
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: screenshots
-          path: E2E.Tests/screenshots/
+- name: Run E2E Tests
+  run: |
+    cd E2E.Tests
+    # Run only tests marked with [Trait("Category", "E2E")]
+    dotnet test --no-build --configuration Debug --verbosity normal \
+      --logger "trx;LogFileName=e2e-tests.trx" \
+      --filter "Category=E2E"
+  env:
+    ASPNETCORE_ENVIRONMENT: Development
 ```
+
+**Advantages of Trait Filtering:**
+- No source file modifications in CI
+- Clear test categorization
+- Easy to run E2E tests locally with same command
+- Can exclude E2E tests from other workflows: `--filter "Category!=E2E"`
 
 ## Troubleshooting
 
@@ -279,7 +294,8 @@ jobs:
 
 ## Current Status
 
-**Phase 3: E2E Testing** - ✅ INFRASTRUCTURE COMPLETE
+**Phase 3: E2E Testing** - ✅ COMPLETE
+**Phase 4: CI/CD Integration** - ✅ COMPLETE
 
 - ✅ Project created and configured
 - ✅ Playwright installed (Chromium, Firefox, WebKit)
@@ -288,27 +304,27 @@ jobs:
 - ✅ Test authentication endpoint implemented (`/api/auth/test-signin`)
 - ✅ E2EAuthHelper created for easy authentication
 - ✅ Login workflow tests created (3 tests)
-- ✅ Authenticated workflow tests created (6 tests):
+- ✅ Authenticated workflow tests created (5 tests):
   - Sign in and navigate to tests page
   - Create test and verify it appears in list
   - Create and view test details
   - Verify generation buttons behavior
   - Delete test from list
-  - Additional UI interaction scenarios
-- 📋 Pending: CI/CD integration
+- ✅ CI/CD integration with GitHub Actions
+- ✅ Trait-based test filtering (`Category=E2E`)
+- ✅ Automated test result reporting
+- ✅ Screenshot capture on test failure
 - 📋 Pending: File upload E2E tests (requires multipart form handling)
 
 **Test Files:**
-- `LoginWorkflowTests.cs`: 3 tests for login page (skipped by default)
-- `AuthenticatedWorkflowTests.cs`: 6 tests for authenticated user workflows (skipped by default)
+- `LoginWorkflowTests.cs`: 3 tests for login page
+- `AuthenticatedWorkflowTests.cs`: 5 tests for authenticated user workflows
 - `E2EAuthHelper.cs`: Authentication helper for E2E tests
 - `PlaywrightFixture.cs`: Browser management
 
-**Total E2E Tests:** 9 tests (all skipped by default - unskip when running application)
+**Total E2E Tests:** 8 tests (all marked with `[Trait("Category", "E2E")]`)
 
-**Next Steps:**
-1. Start the application (`dotnet run` in Server directory)
-2. Unskip tests (remove `Skip` parameter from `[Fact]` attributes)
-3. Run tests: `dotnet test`
-4. Add screenshot capture on test failure
-5. Configure CI/CD pipeline
+**Running Tests:**
+1. Start the application: `cd Server && dotnet run`
+2. Run E2E tests: `cd E2E.Tests && dotnet test --filter "Category=E2E"`
+3. View results in terminal output

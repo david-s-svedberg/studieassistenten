@@ -31,7 +31,8 @@ public class LoginWorkflowTests : IClassFixture<PlaywrightFixture>, IAsyncLifeti
         }
     }
 
-    [Fact(Skip = "Requires running application - unskip when app is running")]
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task LoginPage_WhenLoaded_DisplaysGoogleSignInButton()
     {
         // Arrange & Act
@@ -46,7 +47,8 @@ public class LoginWorkflowTests : IClassFixture<PlaywrightFixture>, IAsyncLifeti
         buttonText.Should().Contain("Sign in with Google");
     }
 
-    [Fact(Skip = "Requires running application - unskip when app is running")]
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task LoginPage_WhenLoaded_DisplaysApplicationTitle()
     {
         // Arrange & Act
@@ -61,7 +63,8 @@ public class LoginWorkflowTests : IClassFixture<PlaywrightFixture>, IAsyncLifeti
         headingText.Should().Be("Studieassistenten");
     }
 
-    [Fact(Skip = "Requires running application - unskip when app is running")]
+    [Fact]
+    [Trait("Category", "E2E")]
     public async Task LoginPage_WhenAccessDenied_DisplaysErrorMessage()
     {
         // Arrange & Act
