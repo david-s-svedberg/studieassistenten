@@ -1,5 +1,12 @@
 # Studieassistenten - Phase 1 Complete! 🎉
 
+[![CI - Build and Test](https://github.com/david-s-svedberg/studieassistenten/actions/workflows/ci.yml/badge.svg)](https://github.com/david-s-svedberg/studieassistenten/actions/workflows/ci.yml)
+[![E2E Tests](https://github.com/david-s-svedberg/studieassistenten/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/david-s-svedberg/studieassistenten/actions/workflows/e2e-tests.yml)
+![Test Count](https://img.shields.io/badge/tests-107%20total-brightgreen)
+![Integration](https://img.shields.io/badge/integration-44%20passing-success)
+![Component](https://img.shields.io/badge/component-54%20passing-success)
+![E2E](https://img.shields.io/badge/e2e-8%20tests-blue)
+
 ## What's Been Implemented
 
 Phase 1 of the Studieassistenten project is now complete! Here's what has been built:

@@ -1,0 +1,132 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'Client/**'
+      - 'Server/**'
+      - 'E2E.Tests/**'
+      - '.github/workflows/e2e-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build solution
+      run: dotnet build --configuration Debug --no-restore
+
+    - name: Install Playwright browsers
+      run: |
+        cd E2E.Tests
+        pwsh bin/Debug/net8.0/playwright.ps1 install --with-deps chromium
+
+    - name: Create appsettings for testing
+      run: |
+        cat > Server/appsettings.Development.json <<EOF
+        {
+          "Logging": {
+            "LogLevel": {
+              "Default": "Warning",
+              "Microsoft.AspNetCore": "Warning"
+            }
+          },
+          "ConnectionStrings": {
+            "DefaultConnection": "Data Source=studieassistenten_e2e.db"
+          },
+          "Anthropic": {
+            "ApiKey": "test-key-not-used-in-e2e",
+            "Model": "claude-sonnet-4-5-20250929"
+          },
+          "Authentication": {
+            "Google": {
+              "ClientId": "test",
+              "ClientSecret": "test"
+            }
+          },
+          "EmailWhitelist": {
+            "EnableWhitelist": false,
+            "AllowedEmails": ["test@example.com"]
+          }
+        }
+        EOF
+
+    - name: Start application in background
+      run: |
+        cd Server
+        dotnet run --no-build --configuration Debug &
+        echo $! > ../server.pid
+
+        # Wait for server to be ready (max 60 seconds)
+        echo "Waiting for server to start..."
+        for i in {1..60}; do
+          if curl -k -s https://localhost:7247 > /dev/null 2>&1; then
+            echo "Server is ready!"
+            break
+          fi
+          if [ $i -eq 60 ]; then
+            echo "Server failed to start within 60 seconds"
+            exit 1
+          fi
+          sleep 1
+        done
+
+    - name: Run E2E Tests
+      run: |
+        cd E2E.Tests
+        # Unskip all E2E tests for CI
+        sed -i 's/\[Fact(Skip = "Requires running application[^"]*")\]/[Fact]/g' LoginWorkflowTests.cs
+        sed -i 's/\[Fact(Skip = "Requires running application[^"]*")\]/[Fact]/g' AuthenticatedWorkflowTests.cs
+
+        dotnet test --no-build --configuration Debug --verbosity normal --logger "trx;LogFileName=e2e-tests.trx"
+      env:
+        ASPNETCORE_ENVIRONMENT: Development
+
+    - name: Stop application
+      if: always()
+      run: |
+        if [ -f server.pid ]; then
+          kill $(cat server.pid) || true
+          rm server.pid
+        fi
+
+    - name: Upload E2E Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: e2e-test-results
+        path: E2E.Tests/TestResults/*.trx
+        retention-days: 30
+
+    - name: Upload Screenshots on Failure
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: e2e-screenshots
+        path: E2E.Tests/screenshots/
+        retention-days: 7
+
+    - name: Publish E2E Test Results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: E2E Test Results
+        path: 'E2E.Tests/TestResults/*.trx'
+        reporter: dotnet-trx
+        fail-on-error: false
