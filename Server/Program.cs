@@ -175,8 +175,15 @@ builder.Services.AddScoped<IOcrService, AzureComputerVisionOcrService>();
 builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
 builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
 
-// AI services
+// AI services - Provider abstraction
+builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.Abstractions.IAiProvider, StudieAssistenten.Server.Services.AI.Providers.AnthropicAiProvider>();
+builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.Abstractions.IAiProvider, StudieAssistenten.Server.Services.AI.Providers.GeminiAiProvider>();
+builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.AiProviderFactory>();
+
+// Legacy Anthropic client (for backward compatibility with tests)
 builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.IAnthropicApiClient, StudieAssistenten.Server.Services.AI.AnthropicApiClient>();
+
+// Content generators
 builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.Generators.IFlashcardGenerator, StudieAssistenten.Server.Services.AI.Generators.FlashcardGenerator>();
 builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.Generators.IPracticeTestGenerator, StudieAssistenten.Server.Services.AI.Generators.PracticeTestGenerator>();
 builder.Services.AddScoped<StudieAssistenten.Server.Services.AI.Generators.ISummaryGenerator, StudieAssistenten.Server.Services.AI.Generators.SummaryGenerator>();

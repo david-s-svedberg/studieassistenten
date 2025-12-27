@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Server.Services.AI;
+using StudieAssistenten.Server.Services.AI.Abstractions;
 using StudieAssistenten.Server.Tests.Fixtures;
 using StudieAssistenten.Server.Tests.Mocks;
 using StudieAssistenten.Server.Tests.TestData;
@@ -17,7 +18,7 @@ namespace StudieAssistenten.Server.Tests.Integration.Controllers;
 
 /// <summary>
 /// Integration tests for ContentGenerationController.
-/// Tests AI content generation (flashcards, practice tests, summaries) with mocked Anthropic API.
+/// Tests AI content generation (flashcards, practice tests, summaries) with mocked AI provider.
 /// </summary>
 [Collection("Sequential")]
 public class ContentGenerationControllerTests : IClassFixture<TestWebApplicationFactory>, IAsyncLifetime
@@ -27,6 +28,7 @@ public class ContentGenerationControllerTests : IClassFixture<TestWebApplication
     private ApplicationUser _testUser = null!;
     private DatabaseFixture _dbFixture = null!;
     private MockAnthropicClient _mockAnthropicClient = null!;
+    private MockAiProvider _mockAiProvider = null!;
 
     public ContentGenerationControllerTests(TestWebApplicationFactory factory)
     {
@@ -40,9 +42,13 @@ public class ContentGenerationControllerTests : IClassFixture<TestWebApplication
         _dbFixture = new DatabaseFixture(_factory.Services);
         _testUser = await _dbFixture.CreateTestUser();
 
-        // Get reference to mock Anthropic client
+        // Get reference to mock Anthropic client (legacy)
         _mockAnthropicClient = (MockAnthropicClient)scope.ServiceProvider.GetRequiredService<IAnthropicApiClient>();
         _mockAnthropicClient.Reset();
+
+        // Get reference to mock AI provider (new abstraction)
+        _mockAiProvider = (MockAiProvider)scope.ServiceProvider.GetRequiredService<IAiProvider>();
+        _mockAiProvider.Reset();
 
         _client = AuthenticationFixture.CreateAuthenticatedClient(_factory, _testUser);
     }
@@ -81,7 +87,7 @@ public class ContentGenerationControllerTests : IClassFixture<TestWebApplication
         content.Content.Should().NotBeNullOrEmpty();
 
         // Verify mock was called
-        _mockAnthropicClient.CallCount.Should().BeGreaterThan(0);
+        _mockAiProvider.CallCount.Should().BeGreaterThan(0);
 
         // Verify saved to database
         var dbContent = await _dbFixture.Context.GeneratedContents
@@ -114,7 +120,7 @@ public class ContentGenerationControllerTests : IClassFixture<TestWebApplication
         content!.ProcessingType.Should().Be(ProcessingType.Flashcards);
 
         // Verify AI was called (mock validates the request internally)
-        _mockAnthropicClient.CallCount.Should().BeGreaterThan(0);
+        _mockAiProvider.CallCount.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -181,7 +187,7 @@ public class ContentGenerationControllerTests : IClassFixture<TestWebApplication
         content.Content.Should().NotBeNullOrEmpty();
 
         // Verify mock was called
-        _mockAnthropicClient.CallCount.Should().BeGreaterThan(0);
+        _mockAiProvider.CallCount.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -238,7 +244,7 @@ public class ContentGenerationControllerTests : IClassFixture<TestWebApplication
         content.Id.Should().BeGreaterThan(0);
         content.Content.Should().NotBeNullOrEmpty();
 
-        _mockAnthropicClient.CallCount.Should().BeGreaterThan(0);
+        _mockAiProvider.CallCount.Should().BeGreaterThan(0);
     }
 
     [Fact]

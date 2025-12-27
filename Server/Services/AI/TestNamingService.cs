@@ -1,6 +1,6 @@
-using Anthropic.SDK.Messaging;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
+using StudieAssistenten.Server.Services.AI.Abstractions;
 
 namespace StudieAssistenten.Server.Services.AI;
 
@@ -11,17 +11,17 @@ public interface ITestNamingService
 
 public class TestNamingService : BaseContentGenerator, ITestNamingService
 {
-    private readonly IAnthropicApiClient _apiClient;
+    private readonly AiProviderFactory _aiProviderFactory;
 
     public TestNamingService(
-        IAnthropicApiClient apiClient,
+        AiProviderFactory aiProviderFactory,
         ApplicationDbContext context,
         IRateLimitingService rateLimitingService,
         IConfiguration configuration,
         ILogger<TestNamingService> logger)
         : base(context, rateLimitingService, configuration, logger)
     {
-        _apiClient = apiClient;
+        _aiProviderFactory = aiProviderFactory;
     }
 
     public async Task<string> SuggestTestNameAsync(int testId)
@@ -72,9 +72,19 @@ Examples: 'Fotosyntesen och Cellbiologi', 'Svenska Grammatik - Verb', 'Andra Vä
 
         try
         {
-            var response = await _apiClient.SendMessageAsync(systemPrompt, userPrompt, temperature: 0.7m, maxTokens: 100);
+            var aiRequest = new AiRequest
+            {
+                SystemPrompt = systemPrompt,
+                UserPrompt = userPrompt,
+                Temperature = 0.7m,
+                MaxTokens = 100,
+                EnableCaching = false // Don't cache for short naming requests
+            };
 
-            var suggestedName = (response.Content.FirstOrDefault() as TextContent)?.Text?.Trim() ?? string.Empty;
+            var provider = _aiProviderFactory.GetProvider();
+            var response = await provider.SendMessageAsync(aiRequest);
+
+            var suggestedName = response.Content.Trim();
 
             // Remove quotes if present
             suggestedName = suggestedName.Trim('"', '\'');

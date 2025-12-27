@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using StudieAssistenten.Server.Data;
 using StudieAssistenten.Server.Services;
 using StudieAssistenten.Server.Services.AI;
+using StudieAssistenten.Server.Services.AI.Abstractions;
 using StudieAssistenten.Server.Tests.Mocks;
 
 namespace StudieAssistenten.Server.Tests.Fixtures;
@@ -42,7 +43,11 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>, IDispos
 
             // Mock external services to avoid real API calls
 
-            // Mock Anthropic API (AI content generation) - Singleton so tests can verify call count
+            // Mock AI Provider (new abstraction) - Singleton so tests can verify call count
+            services.RemoveAll<IAiProvider>();
+            services.AddSingleton<IAiProvider, MockAiProvider>();
+
+            // Mock Anthropic API (legacy - for backward compatibility) - Singleton so tests can verify call count
             services.RemoveAll<IAnthropicApiClient>();
             services.AddSingleton<IAnthropicApiClient, MockAnthropicClient>();
 

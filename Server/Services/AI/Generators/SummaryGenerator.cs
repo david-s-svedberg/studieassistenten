@@ -1,6 +1,6 @@
-using Anthropic.SDK.Messaging;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
+using StudieAssistenten.Server.Services.AI.Abstractions;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
@@ -14,17 +14,17 @@ public interface ISummaryGenerator
 
 public class SummaryGenerator : BaseContentGenerator, ISummaryGenerator
 {
-    private readonly IAnthropicApiClient _apiClient;
+    private readonly AiProviderFactory _aiProviderFactory;
 
     public SummaryGenerator(
-        IAnthropicApiClient apiClient,
+        AiProviderFactory aiProviderFactory,
         ApplicationDbContext context,
         IRateLimitingService rateLimitingService,
         IConfiguration configuration,
         ILogger<SummaryGenerator> logger)
         : base(context, rateLimitingService, configuration, logger)
     {
-        _apiClient = apiClient;
+        _aiProviderFactory = aiProviderFactory;
     }
 
     public async Task<GeneratedContent> GenerateAsync(GenerateContentRequestDto request)
@@ -95,9 +95,18 @@ Use markdown formatting:
 
 {(string.IsNullOrWhiteSpace(request.TeacherInstructions) ? "" : $"\nAdditional instructions: {request.TeacherInstructions}")}";
 
-        var response = await _apiClient.SendMessageAsync(systemPrompt, userPrompt, temperature: 0.5m);
+        var aiRequest = new AiRequest
+        {
+            SystemPrompt = systemPrompt,
+            UserPrompt = userPrompt,
+            Temperature = 0.5m,
+            EnableCaching = true
+        };
 
-        var content = (response.Content.FirstOrDefault() as TextContent)?.Text ?? string.Empty;
+        var provider = _aiProviderFactory.GetProvider();
+        var response = await provider.SendMessageAsync(aiRequest);
+
+        var content = response.Content;
 
         var generatedContent = new GeneratedContent
         {

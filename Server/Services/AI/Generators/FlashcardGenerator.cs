@@ -1,6 +1,6 @@
-using Anthropic.SDK.Messaging;
 using Microsoft.EntityFrameworkCore;
 using StudieAssistenten.Server.Data;
+using StudieAssistenten.Server.Services.AI.Abstractions;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
@@ -15,17 +15,17 @@ public interface IFlashcardGenerator
 
 public class FlashcardGenerator : BaseContentGenerator, IFlashcardGenerator
 {
-    private readonly IAnthropicApiClient _apiClient;
+    private readonly AiProviderFactory _aiProviderFactory;
 
     public FlashcardGenerator(
-        IAnthropicApiClient apiClient,
+        AiProviderFactory aiProviderFactory,
         ApplicationDbContext context,
         IRateLimitingService rateLimitingService,
         IConfiguration configuration,
         ILogger<FlashcardGenerator> logger)
         : base(context, rateLimitingService, configuration, logger)
     {
-        _apiClient = apiClient;
+        _aiProviderFactory = aiProviderFactory;
     }
 
     public async Task<GeneratedContent> GenerateAsync(GenerateContentRequestDto request)
@@ -89,9 +89,18 @@ Example: [{{""question"": ""Vad √§r fotosyntesen?"", ""answer"": ""En process d√
 
 {(string.IsNullOrWhiteSpace(request.TeacherInstructions) ? "" : $"\nAdditional instructions: {request.TeacherInstructions}")}";
 
-        var response = await _apiClient.SendMessageAsync(systemPrompt, userPrompt, temperature: 0.7m);
+        var aiRequest = new AiRequest
+        {
+            SystemPrompt = systemPrompt,
+            UserPrompt = userPrompt,
+            Temperature = 0.7m,
+            EnableCaching = true
+        };
 
-        var content = (response.Content.FirstOrDefault() as TextContent)?.Text ?? string.Empty;
+        var provider = _aiProviderFactory.GetProvider();
+        var response = await provider.SendMessageAsync(aiRequest);
+
+        var content = response.Content;
         Logger.LogInformation("Received flashcards response: {Length} characters", content.Length);
 
         // Clean JSON response (remove markdown code fences if present)
