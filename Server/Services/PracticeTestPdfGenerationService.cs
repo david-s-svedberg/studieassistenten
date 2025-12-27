@@ -68,9 +68,29 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
 
             foreach (var line in lines)
             {
-                if (line.TrimStart().StartsWith(questionNumber + ".") ||
-                    line.TrimStart().StartsWith($"**{questionNumber}.") ||
-                    line.TrimStart().StartsWith($"#{questionNumber}") ||
+                var trimmedLine = line.TrimStart();
+
+                // Check if this is a section heading (###, ##, #)
+                if (trimmedLine.StartsWith("### ") || trimmedLine.StartsWith("## ") || trimmedLine.StartsWith("# "))
+                {
+                    // Render previous question if exists
+                    if (currentQuestion.Any())
+                    {
+                        column.Item().Element(container => ComposeQuestion(container, questionNumber - 1, currentQuestion));
+                        currentQuestion.Clear();
+                    }
+
+                    // Render section heading
+                    var headingText = trimmedLine.StartsWith("### ") ? trimmedLine.Substring(4) :
+                                      trimmedLine.StartsWith("## ") ? trimmedLine.Substring(3) :
+                                      trimmedLine.Substring(2);
+                    column.Item().PaddingTop(10).Text(headingText).FontSize(14).Bold().FontColor(Colors.Blue.Darken1);
+                    continue;
+                }
+
+                if (trimmedLine.StartsWith(questionNumber + ".") ||
+                    trimmedLine.StartsWith($"**{questionNumber}.") ||
+                    trimmedLine.StartsWith($"#{questionNumber}") ||
                     (questionNumber > 1 && (line.Contains("**Fråga") || line.Contains("Question"))))
                 {
                     // Render previous question if exists
@@ -174,8 +194,12 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
             return;
         }
 
-        // Remove markdown headers (## or #)
-        if (line.StartsWith("## "))
+        // Remove markdown headers (###, ##, or #)
+        if (line.StartsWith("### "))
+        {
+            line = line.Substring(4);
+        }
+        else if (line.StartsWith("## "))
         {
             line = line.Substring(3);
         }
@@ -207,7 +231,12 @@ public class PracticeTestPdfGenerationService : BasePdfGenerationService, IPract
             return;
         }
 
-        // Remove markdown headers (## or #)
+        // Remove markdown headers (###, ##, or #)
+        if (line.StartsWith("### "))
+        {
+            column.Item().PaddingTop(5).Text(line.Substring(4)).FontSize(12).Bold();
+            return;
+        }
         if (line.StartsWith("## "))
         {
             column.Item().PaddingTop(5).Text(line.Substring(3)).FontSize(12).Bold();
