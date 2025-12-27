@@ -48,6 +48,12 @@ public class TestsController : BaseApiController
             var userId = GetCurrentUserId();
 
             var result = await _testService.CreateTestAsync(request, userId);
+
+            if (result == null)
+            {
+                return StatusCode(500, "Failed to create test");
+            }
+
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
         catch (Exception ex)
