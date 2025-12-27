@@ -98,9 +98,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Console.WriteLine($"[NavMenu] OnInitializedAsync called. TestStateService instance: {TestStateService.GetHashCode()}");
+        Console.WriteLine($"[NavMenu] Subscribing to OnTestChanged. Current subscribers before: {TestStateService.GetSubscriberCount()}");
+
         await LogToConsole("[NavMenu] OnInitializedAsync called");
         NavigationManager.LocationChanged += OnLocationChanged;
         TestStateService.OnTestChanged += OnTestChanged;
+
+        Console.WriteLine($"[NavMenu] Subscribed. Current subscribers after: {TestStateService.GetSubscriberCount()}");
         await LoadTests();
     }
 

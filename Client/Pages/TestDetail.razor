@@ -804,6 +804,7 @@ else
 
             await TestService.UpdateTestAsync(TestId, request);
             test.Name = editedName;
+            Console.WriteLine($"[TestDetail] Manual edit - calling NotifyTestChanged. TestStateService instance: {TestStateService.GetHashCode()}");
             TestStateService.NotifyTestChanged(); // Notify menu to refresh
         }
 
@@ -1260,6 +1261,7 @@ else
                     lastFailedNamingReason = null;
                     uploadStatus = $"Test renamed to: {suggestedName}";
                     StateHasChanged(); // Update UI to show new name immediately
+                    Console.WriteLine($"[TestDetail] AI naming - calling NotifyTestChanged. TestStateService instance: {TestStateService.GetHashCode()}");
                     TestStateService.NotifyTestChanged(); // Notify menu to refresh
                 }
                 else
