@@ -283,7 +283,7 @@ app.Use(async (context, next) =>
     // Adjusted for Blazor WebAssembly requirements
     context.Response.Headers.Append("Content-Security-Policy",
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-AA99+JSnoA8VDU0S18bLsAs2mB/pE6UorFNrO+yEj0E=' 'sha256-rix1Vs83ItBtb257nN0MhMQIyfZxlSmE12KoEoUV6po=' 'sha256-yei5Fza+Eyx4G0smvN0xBqEesIKumz6RSyGsU3FJowI=' 'sha256-e4ZVW9jRfeAm2B9N1Iy64Gt0SVjlulOOfv6EZaZz2IQ='; " +  // Required for Blazor WASM + inline scripts + flashcard player
+        "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-AA99+JSnoA8VDU0S18bLsAs2mB/pE6UorFNrO+yEj0E=' 'sha256-rix1Vs83ItBtb257nN0MhMQIyfZxlSmE12KoEoUV6po=' 'sha256-yei5Fza+Eyx4G0smvN0xBqEesIKumz6RSyGsU3FJowI=' 'sha256-e4ZVW9jRfeAm2B9N1Iy64Gt0SVjlulOOfv6EZaZz2IQ=' 'sha256-wyAJc2OQohurqBfunkhoyE9F/KgX5zkAgw1LS0Tq9I8='; " +  // Required for Blazor WASM + inline scripts + flashcard player
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +  // Required for Blazor inline styles + Bootstrap Icons CDN
         "img-src 'self' data: https: blob:; " +                   // blob: required for image preview from File objects
         "font-src 'self' https://cdn.jsdelivr.net; " +            // Bootstrap Icons fonts from CDN

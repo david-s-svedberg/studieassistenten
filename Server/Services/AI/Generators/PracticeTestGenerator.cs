@@ -4,6 +4,7 @@ using StudieAssistenten.Server.Services.AI.Abstractions;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Enums;
 using StudieAssistenten.Shared.Models;
+using System.Text.Json;
 
 namespace StudieAssistenten.Server.Services.AI.Generators;
 
@@ -74,25 +75,38 @@ public class PracticeTestGenerator : BaseContentGenerator, IPracticeTestGenerato
             : "Provide an answer key without detailed explanations.";
 
         var systemPrompt = @"You are an educational assistant that creates practice tests from study materials.
-Create a practice test in Swedish with multiple choice questions, short answer questions, or essay questions.
+Create a practice test in Swedish with multiple-choice questions.
 Make the questions challenging but fair, covering the key concepts from the material.
 
-Format your response using markdown:
-- Use **bold** for question numbers and important terms
-- Use numbered lists (1., 2., etc.) for questions
-- Use lettered lists (A), B), C), D)) for multiple choice options
-- Use ## headings for sections (Questions, Answer Key)
-- Use bullet points (-) in explanations when needed
-- Use tables (| column | column |) for structured answer explanations or data";
+CRITICAL: Return ONLY a JSON array of question objects, with no additional text or markdown.
+Each question object must have this exact structure:
+{
+  ""question"": ""The question text in Swedish"",
+  ""options"": [""Option A"", ""Option B"", ""Option C"", ""Option D""],
+  ""correctAnswer"": ""The correct option text (must match one of the options exactly)"",
+  ""explanation"": ""Explanation of why this is the correct answer (optional, can be null)""
+}
 
-        var userPrompt = $@"Create a practice test with {questionCount} from the following study material:
+Example response format:
+[
+  {
+    ""question"": ""Vad är huvudstaden i Sverige?"",
+    ""options"": [""Oslo"", ""Stockholm"", ""Köpenhamn"", ""Helsingfors""],
+    ""correctAnswer"": ""Stockholm"",
+    ""explanation"": ""Stockholm är Sveriges huvudstad sedan 1634.""
+  }
+]";
 
+        var userPrompt = $@"Create a multiple-choice practice test with {questionCount} from the following study material.
+Each question should have 4 options.
+{explanationsNote}
+
+Study material:
 {combinedText}
 
-{questionTypesInstruction}
-Provide an answer key at the end. {explanationsNote}
+{(string.IsNullOrWhiteSpace(request.TeacherInstructions) ? "" : $"\nAdditional instructions: {request.TeacherInstructions}")}
 
-{(string.IsNullOrWhiteSpace(request.TeacherInstructions) ? "" : $"\nAdditional instructions: {request.TeacherInstructions}")}";
+Return ONLY the JSON array, no markdown formatting or additional text.";
 
         var aiRequest = new AiRequest
         {
@@ -106,7 +120,23 @@ Provide an answer key at the end. {explanationsNote}
         var response = await provider.SendMessageAsync(aiRequest);
 
         var content = response.Content;
+        Logger.LogInformation("Received practice test response: {Length} characters", content.Length);
 
+        // Clean JSON response (remove markdown code fences if present)
+        content = CleanJsonResponse(content);
+
+        // Parse the JSON response
+        var questionsData = JsonSerializer.Deserialize<List<PracticeQuestionData>>(content, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (questionsData == null || questionsData.Count == 0)
+        {
+            throw new InvalidOperationException("Failed to parse practice questions from AI response");
+        }
+
+        // Create GeneratedContent with practice questions
         var generatedContent = new GeneratedContent
         {
             TestId = request.TestId,
@@ -114,15 +144,37 @@ Provide an answer key at the end. {explanationsNote}
             ProcessingType = ProcessingType.PracticeTest,
             GeneratedAt = DateTime.UtcNow,
             Title = $"Practice Test - {test.Name}",
-            Content = content
+            Content = content,
+            PracticeQuestions = questionsData.Select((q, index) => new PracticeQuestion
+            {
+                Question = q.Question,
+                OptionsJson = JsonSerializer.Serialize(q.Options),
+                CorrectAnswer = q.CorrectAnswer,
+                Explanation = q.Explanation,
+                Order = index
+            }).ToList()
         };
 
         Context.GeneratedContents.Add(generatedContent);
         await Context.SaveChangesAsync();
 
-        Logger.LogInformation("Created practice test for test {TestId}", request.TestId);
+        Logger.LogInformation("Created {Count} practice questions for test {TestId}", questionsData.Count, request.TestId);
 
         return generatedContent;
+    }
+
+    private static string CleanJsonResponse(string content)
+    {
+        content = content.Trim();
+
+        // Remove markdown code fences if present
+        if (content.StartsWith("```"))
+        {
+            var lines = content.Split('\n');
+            content = string.Join('\n', lines.Skip(1).Take(lines.Length - 2));
+        }
+
+        return content.Trim();
     }
 
     private string BuildQuestionTypesInstruction(List<string>? types)
@@ -138,4 +190,15 @@ Provide an answer key at the end. {explanationsNote}
 
         return $"Include only these question types: {string.Join(", ", typeDescriptions)}.";
     }
+}
+
+/// <summary>
+/// Temporary data structure for deserializing practice questions from AI response
+/// </summary>
+internal class PracticeQuestionData
+{
+    public string Question { get; set; } = string.Empty;
+    public List<string> Options { get; set; } = new();
+    public string CorrectAnswer { get; set; } = string.Empty;
+    public string? Explanation { get; set; }
 }

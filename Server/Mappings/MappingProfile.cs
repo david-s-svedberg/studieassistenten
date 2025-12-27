@@ -1,6 +1,7 @@
 using AutoMapper;
 using StudieAssistenten.Shared.DTOs;
 using StudieAssistenten.Shared.Models;
+using System.Text.Json;
 
 namespace StudieAssistenten.Server.Mappings;
 
@@ -9,6 +10,21 @@ namespace StudieAssistenten.Server.Mappings;
 /// </summary>
 public class MappingProfile : Profile
 {
+    private static List<string> DeserializeOptions(string optionsJson)
+    {
+        if (string.IsNullOrEmpty(optionsJson))
+            return new List<string>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(optionsJson) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
     public MappingProfile()
     {
         // Document mappings
@@ -81,10 +97,19 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Flashcards,
                 opt => opt.MapFrom(src => src.Flashcards != null
                     ? src.Flashcards.OrderBy(f => f.Order).ToList()
-                    : new List<Flashcard>()));
+                    : new List<Flashcard>()))
+            .ForMember(dest => dest.PracticeQuestions,
+                opt => opt.MapFrom(src => src.PracticeQuestions != null
+                    ? src.PracticeQuestions.OrderBy(q => q.Order).ToList()
+                    : new List<PracticeQuestion>()));
 
         // Flashcard mappings
         CreateMap<Flashcard, FlashcardDto>();
+
+        // Practice question mappings
+        CreateMap<PracticeQuestion, PracticeQuestionDto>()
+            .ForMember(dest => dest.Options,
+                opt => opt.MapFrom(src => DeserializeOptions(src.OptionsJson)));
 
         // User mappings
         CreateMap<ApplicationUser, UserDto>()

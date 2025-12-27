@@ -36,4 +36,9 @@ public class GeneratedContent
     /// Collection of flashcards if ProcessingType is Flashcards
     /// </summary>
     public ICollection<Flashcard> Flashcards { get; set; } = new List<Flashcard>();
+
+    /// <summary>
+    /// Collection of practice questions if ProcessingType is PracticeTest
+    /// </summary>
+    public ICollection<PracticeQuestion> PracticeQuestions { get; set; } = new List<PracticeQuestion>();
 }

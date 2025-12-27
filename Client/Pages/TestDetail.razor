@@ -101,24 +101,29 @@ else
                     @foreach (var content in generatedContents)
                     {
                         <div class="content-card">
-                            <div class="content-icon">
-                                <i class="bi @GetContentIcon(content.ProcessingType)"></i>
-                            </div>
-                            <div class="content-info flex-grow-1">
-                                <div class="content-title">@content.Title</div>
-                                <div class="content-meta">
-                                    @content.ProcessingType • @content.GeneratedAt.ToString("yyyy-MM-dd HH:mm")
+                            <div class="content-card-header">
+                                <div class="content-icon">
+                                    <i class="bi @GetContentIcon(content.ProcessingType)"></i>
                                 </div>
+                                <div class="content-title">@content.Title</div>
                             </div>
-                            @if (content.ProcessingType == ProcessingType.Flashcards)
-                            {
-                                <button class="btn btn-sm btn-success me-2" @onclick="() => PlayFlashcards(content)" title="Play flashcards">
-                                    <i class="bi bi-play-fill"></i> Play
-                                </button>
-                            }
-                            <a href="@ContentService.GetPdfUrl(content.Id)" target="_blank" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-download"></i> PDF
-                            </a>
+                            <div class="content-card-actions">
+                                @if (content.ProcessingType == ProcessingType.Flashcards)
+                                {
+                                    <button class="btn btn-sm btn-success" @onclick="() => PlayFlashcards(content)" title="Play flashcards">
+                                        <i class="bi bi-play-fill"></i> Play
+                                    </button>
+                                }
+                                @if (content.ProcessingType == ProcessingType.PracticeTest && content.PracticeQuestions != null && content.PracticeQuestions.Any())
+                                {
+                                    <button class="btn btn-sm btn-success" @onclick="() => PlayPracticeTest(content)" title="Take practice test">
+                                        <i class="bi bi-play-fill"></i> Play
+                                    </button>
+                                }
+                                <a href="@ContentService.GetPdfUrl(content.Id)" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-download"></i> PDF
+                                </a>
+                            </div>
                         </div>
                     }
                 </div>
@@ -375,6 +380,11 @@ else
     <FlashcardPlayer Flashcards="currentFlashcards" Title="currentFlashcardTitle" OnClose="CloseFlashcardPlayer" />
 }
 
+@if (showPracticeTestPlayer)
+{
+    <PracticeTestPlayer Questions="currentPracticeQuestions" Title="currentPracticeTestTitle" OnClose="ClosePracticeTestPlayer" />
+}
+
 <style>
     .test-detail {
         color: #ececf1;
@@ -440,6 +450,21 @@ else
     .content-card {
         background: #2d3748;
         border-color: #4a5568;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .content-card-header {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .content-card-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
     }
 
     .document-icon, .content-icon {
@@ -459,12 +484,18 @@ else
         min-width: 0;
     }
 
-    .document-name, .content-title {
+    .document-name {
         font-weight: 500;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         color: #ececf1;
+    }
+
+    .content-title {
+        font-weight: 500;
+        color: #ececf1;
+        flex: 1;
     }
 
     .document-meta, .content-meta {
@@ -730,6 +761,11 @@ else
     private List<FlashcardDto> currentFlashcards = new();
     private string currentFlashcardTitle = "";
 
+    // Practice test player state
+    private bool showPracticeTestPlayer = false;
+    private List<PracticeQuestionDto> currentPracticeQuestions = new();
+    private string currentPracticeTestTitle = "";
+
     // Share state
     private int shareCount = 0;
 
@@ -874,6 +910,27 @@ else
         showFlashcardPlayer = false;
         currentFlashcards = new();
         currentFlashcardTitle = "";
+    }
+
+    // Practice test player
+    private void PlayPracticeTest(GeneratedContentDto content)
+    {
+        if (content.PracticeQuestions == null || content.PracticeQuestions.Count == 0)
+        {
+            ToastService.ShowError("This practice test was created with an older version. Please delete and regenerate it to use the interactive player.");
+            return;
+        }
+
+        currentPracticeQuestions = content.PracticeQuestions;
+        currentPracticeTestTitle = content.Title;
+        showPracticeTestPlayer = true;
+    }
+
+    private void ClosePracticeTestPlayer()
+    {
+        showPracticeTestPlayer = false;
+        currentPracticeQuestions = new();
+        currentPracticeTestTitle = "";
     }
 
     // Share management

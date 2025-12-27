@@ -93,6 +93,26 @@
                 window.flashcardKeyListener = null;
             }
         };
+
+        // Practice test player keyboard listener
+        window.practiceTestKeyListener = null;
+
+        window.addPracticeTestKeyListener = function(dotNetHelper) {
+            window.practiceTestKeyListener = function(e) {
+                if ([' ', 'ArrowLeft', 'ArrowRight', 'Escape'].includes(e.key)) {
+                    e.preventDefault();
+                    dotNetHelper.invokeMethodAsync('HandleKeyPress', e.key);
+                }
+            };
+            document.addEventListener('keydown', window.practiceTestKeyListener);
+        };
+
+        window.removePracticeTestKeyListener = function() {
+            if (window.practiceTestKeyListener) {
+                document.removeEventListener('keydown', window.practiceTestKeyListener);
+                window.practiceTestKeyListener = null;
+            }
+        };
     </script>
 </body>
 

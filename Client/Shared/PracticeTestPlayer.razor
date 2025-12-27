@@ -1,0 +1,780 @@
+@using StudieAssistenten.Shared.DTOs
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (!showSummary)
+{
+    <div class="practice-test-overlay" @onclick="HandleOverlayClick">
+        <div class="practice-test-container" @onclick:stopPropagation="true">
+            <!-- Header -->
+            <div class="practice-test-header">
+                <div class="practice-test-progress-container">
+                    <div class="practice-test-progress-text">Question @(currentQuestionIndex + 1) of @TotalQuestions</div>
+                    <div class="practice-test-progress-bar">
+                        <div class="practice-test-progress-fill" style="width: @ProgressPercent%"></div>
+                    </div>
+                </div>
+                <button class="practice-test-close-btn" @onclick="Close" title="Close (ESC)">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <!-- Question Area -->
+            <div class="practice-test-content">
+                <div class="practice-test-question-number">Question @(currentQuestionIndex + 1)</div>
+                <div class="practice-test-question">@CurrentQuestion.Question</div>
+
+                <!-- Options -->
+                <div class="practice-test-options">
+                    @for (int i = 0; i < CurrentQuestion.Options.Count; i++)
+                    {
+                        var index = i;
+                        var option = CurrentQuestion.Options[i];
+                        var isSelected = selectedAnswer == option;
+                        var isCorrect = hasAnswered && option == CurrentQuestion.CorrectAnswer;
+                        var isWrong = hasAnswered && isSelected && option != CurrentQuestion.CorrectAnswer;
+                        var optionClass = $"practice-test-option {(isSelected ? "selected" : "")} {(isCorrect ? "correct" : "")} {(isWrong ? "wrong" : "")} {(hasAnswered ? "disabled" : "")}";
+
+                        <div class="@optionClass" @onclick="() => SelectAnswer(option)">
+                            <div class="practice-test-option-indicator">
+                                @if (hasAnswered)
+                                {
+                                    @if (isCorrect)
+                                    {
+                                        <i class="bi bi-check-circle-fill"></i>
+                                    }
+                                    else if (isWrong)
+                                    {
+                                        <i class="bi bi-x-circle-fill"></i>
+                                    }
+                                    else
+                                    {
+                                        <span class="practice-test-option-bullet">@GetOptionLetter(index)</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="practice-test-option-bullet @(isSelected ? "selected" : "")">@GetOptionLetter(index)</span>
+                                }
+                            </div>
+                            <div class="practice-test-option-text">@option</div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Feedback -->
+                @if (hasAnswered)
+                {
+                    <div class="practice-test-feedback @(isCorrectAnswer ? "correct" : "incorrect")">
+                        <div class="practice-test-feedback-header">
+                            @if (isCorrectAnswer)
+                            {
+                                <i class="bi bi-check-circle-fill"></i>
+                                <span>Correct!</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-x-circle-fill"></i>
+                                <span>Incorrect</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(CurrentQuestion.Explanation))
+                        {
+                            <div class="practice-test-explanation">@CurrentQuestion.Explanation</div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Footer -->
+            <div class="practice-test-footer">
+                <div class="practice-test-score">
+                    Score: @correctAnswers/@answeredCount
+                </div>
+                <div class="practice-test-controls">
+                    <button class="btn btn-outline-light btn-sm" @onclick="Restart" title="Restart test">
+                        <i class="bi bi-arrow-counterclockwise"></i> Restart
+                    </button>
+
+                    @if (!hasAnswered)
+                    {
+                        <button class="btn btn-primary"
+                                @onclick="SubmitAnswer"
+                                disabled="@(string.IsNullOrEmpty(selectedAnswer))"
+                                title="Submit your answer">
+                            Submit Answer
+                        </button>
+                    }
+                    else
+                    {
+                        @if (currentQuestionIndex < TotalQuestions - 1)
+                        {
+                            <button class="btn btn-primary" @onclick="NextQuestion" title="Next question (Space/→)">
+                                Next <i class="bi bi-arrow-right"></i>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-success" @onclick="ShowSummary" title="View results">
+                                Finish <i class="bi bi-check-lg"></i>
+                            </button>
+                        }
+                    }
+                </div>
+                <div class="practice-test-hint">
+                    @if (hasAnswered)
+                    {
+                        <text>Space: next • ESC: exit</text>
+                    }
+                    else
+                    {
+                        <text>Select an answer and click Submit</text>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Summary Screen -->
+    <div class="practice-test-overlay" @onclick="HandleOverlayClick">
+        <div class="practice-test-summary" @onclick:stopPropagation="true">
+            <button class="practice-test-close-btn" @onclick="Close" title="Close (ESC)">
+                <i class="bi bi-x-lg"></i>
+            </button>
+
+            <div class="practice-test-summary-content">
+                <div class="practice-test-summary-icon">
+                    @if (ScorePercent >= 80)
+                    {
+                        <i class="bi bi-trophy-fill"></i>
+                    }
+                    else if (ScorePercent >= 60)
+                    {
+                        <i class="bi bi-hand-thumbs-up-fill"></i>
+                    }
+                    else
+                    {
+                        <i class="bi bi-book-fill"></i>
+                    }
+                </div>
+
+                <h2>Test Complete!</h2>
+
+                <div class="practice-test-summary-score">
+                    <div class="practice-test-summary-score-main">@correctAnswers/@TotalQuestions</div>
+                    <div class="practice-test-summary-score-percent">@ScorePercent.ToString("F0")%</div>
+                </div>
+
+                <div class="practice-test-summary-message">
+                    @if (ScorePercent >= 80)
+                    {
+                        <text>Excellent work! You've mastered this material.</text>
+                    }
+                    else if (ScorePercent >= 60)
+                    {
+                        <text>Good job! Review the questions you missed to improve.</text>
+                    }
+                    else
+                    {
+                        <text>Keep studying! Review the material and try again.</text>
+                    }
+                </div>
+
+                <div class="practice-test-summary-actions">
+                    <button class="btn btn-primary" @onclick="Restart">
+                        <i class="bi bi-arrow-counterclockwise"></i> Try Again
+                    </button>
+                    <button class="btn btn-outline-light" @onclick="Close">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public List<PracticeQuestionDto> Questions { get; set; } = new();
+
+    [Parameter, EditorRequired]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Practice Test";
+
+    // Navigation
+    private int currentQuestionIndex = 0;
+    private string selectedAnswer = "";
+    private bool hasAnswered = false;
+    private bool isCorrectAnswer = false;
+
+    // Scoring
+    private int correctAnswers = 0;
+    private Dictionary<int, string> userAnswers = new();
+
+    // Summary
+    private bool showSummary = false;
+
+    // Keyboard support
+    private DotNetObjectReference<PracticeTestPlayer>? dotNetRef;
+
+    // Computed properties
+    private PracticeQuestionDto CurrentQuestion => Questions[currentQuestionIndex];
+    private int TotalQuestions => Questions.Count;
+    private double ProgressPercent => (currentQuestionIndex + 1) / (double)TotalQuestions * 100;
+    private int answeredCount => userAnswers.Count;
+    private double ScorePercent => TotalQuestions > 0 ? (correctAnswers / (double)TotalQuestions * 100) : 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+            try
+            {
+                await JS.InvokeVoidAsync("addPracticeTestKeyListener", dotNetRef);
+            }
+            catch (JSException)
+            {
+                // Keyboard listener not available - player will still work with mouse/touch
+            }
+        }
+    }
+
+    private void SelectAnswer(string answer)
+    {
+        if (hasAnswered) return; // Can't change answer after submitting
+        selectedAnswer = answer;
+    }
+
+    private void SubmitAnswer()
+    {
+        if (string.IsNullOrEmpty(selectedAnswer)) return;
+
+        hasAnswered = true;
+        isCorrectAnswer = selectedAnswer == CurrentQuestion.CorrectAnswer;
+
+        if (isCorrectAnswer)
+        {
+            correctAnswers++;
+        }
+
+        userAnswers[currentQuestionIndex] = selectedAnswer;
+        StateHasChanged();
+    }
+
+    private void NextQuestion()
+    {
+        if (currentQuestionIndex >= TotalQuestions - 1) return;
+
+        currentQuestionIndex++;
+        selectedAnswer = "";
+        hasAnswered = false;
+        isCorrectAnswer = false;
+        StateHasChanged();
+    }
+
+    private void PreviousQuestion()
+    {
+        if (currentQuestionIndex <= 0) return;
+
+        currentQuestionIndex--;
+
+        // Restore previous answer if exists
+        if (userAnswers.ContainsKey(currentQuestionIndex))
+        {
+            selectedAnswer = userAnswers[currentQuestionIndex];
+            hasAnswered = true;
+            isCorrectAnswer = selectedAnswer == CurrentQuestion.CorrectAnswer;
+        }
+        else
+        {
+            selectedAnswer = "";
+            hasAnswered = false;
+            isCorrectAnswer = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private void Restart()
+    {
+        currentQuestionIndex = 0;
+        selectedAnswer = "";
+        hasAnswered = false;
+        isCorrectAnswer = false;
+        correctAnswers = 0;
+        userAnswers.Clear();
+        showSummary = false;
+        StateHasChanged();
+    }
+
+    private void ShowSummary()
+    {
+        showSummary = true;
+        StateHasChanged();
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private void HandleOverlayClick()
+    {
+        // Clicking overlay does nothing - user must use close button
+    }
+
+    private string GetOptionLetter(int index)
+    {
+        return ((char)('A' + index)).ToString();
+    }
+
+    [JSInvokable]
+    public async Task HandleKeyPress(string key)
+    {
+        if (showSummary)
+        {
+            if (key == "Escape")
+            {
+                await Close();
+            }
+            return;
+        }
+
+        switch (key)
+        {
+            case " ":
+            case "ArrowRight":
+                if (hasAnswered)
+                {
+                    if (currentQuestionIndex < TotalQuestions - 1)
+                    {
+                        NextQuestion();
+                    }
+                    else
+                    {
+                        ShowSummary();
+                    }
+                }
+                else if (!string.IsNullOrEmpty(selectedAnswer))
+                {
+                    SubmitAnswer();
+                }
+                break;
+            case "ArrowLeft":
+                if (!hasAnswered) // Only allow going back before answering
+                {
+                    PreviousQuestion();
+                }
+                break;
+            case "Escape":
+                await Close();
+                break;
+        }
+
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            JS.InvokeVoidAsync("removePracticeTestKeyListener");
+        }
+        catch
+        {
+            // Cleanup function not available - ignore error
+        }
+        dotNetRef?.Dispose();
+    }
+}
+
+<style>
+    .practice-test-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.95);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: practiceTestFadeIn 0.2s ease-out;
+        padding: 1rem;
+    }
+
+    @@keyframes practiceTestFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .practice-test-container {
+        background: #2d3748;
+        border-radius: 1rem;
+        width: 100%;
+        max-width: 900px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .practice-test-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+        border-bottom: 1px solid #4a5568;
+    }
+
+    .practice-test-progress-container {
+        flex: 1;
+        max-width: 400px;
+    }
+
+    .practice-test-progress-text {
+        color: #ececf1;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .practice-test-progress-bar {
+        height: 8px;
+        background: #4a5568;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .practice-test-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #10b981 0%, #3b82f6 100%);
+        transition: width 0.3s ease;
+        border-radius: 4px;
+    }
+
+    .practice-test-close-btn {
+        background: none;
+        border: none;
+        color: #8e8ea0;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        border-radius: 0.5rem;
+    }
+
+    .practice-test-close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ececf1;
+    }
+
+    .practice-test-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 2rem;
+    }
+
+    .practice-test-question-number {
+        color: #3b82f6;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 1rem;
+    }
+
+    .practice-test-question {
+        color: #ececf1;
+        font-size: 1.5rem;
+        font-weight: 500;
+        margin-bottom: 2rem;
+        line-height: 1.5;
+    }
+
+    .practice-test-options {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .practice-test-option {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        background: #1a202c;
+        border: 2px solid #4a5568;
+        border-radius: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .practice-test-option:not(.disabled):hover {
+        background: #2d3748;
+        border-color: #3b82f6;
+        transform: translateX(4px);
+    }
+
+    .practice-test-option.selected:not(.correct):not(.wrong) {
+        background: rgba(59, 130, 246, 0.1);
+        border-color: #3b82f6;
+    }
+
+    .practice-test-option.correct {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: #10b981;
+    }
+
+    .practice-test-option.wrong {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: #ef4444;
+    }
+
+    .practice-test-option.disabled {
+        cursor: default;
+    }
+
+    .practice-test-option-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        min-width: 2rem;
+    }
+
+    .practice-test-option.correct .practice-test-option-indicator {
+        color: #10b981;
+    }
+
+    .practice-test-option.wrong .practice-test-option-indicator {
+        color: #ef4444;
+    }
+
+    .practice-test-option-bullet {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        border: 2px solid #4a5568;
+        color: #8e8ea0;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+
+    .practice-test-option-bullet.selected {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+
+    .practice-test-option-text {
+        flex: 1;
+        color: #ececf1;
+        font-size: 1.125rem;
+    }
+
+    .practice-test-feedback {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        border: 2px solid;
+    }
+
+    .practice-test-feedback.correct {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: #10b981;
+    }
+
+    .practice-test-feedback.incorrect {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: #ef4444;
+    }
+
+    .practice-test-feedback-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .practice-test-feedback.correct .practice-test-feedback-header {
+        color: #10b981;
+    }
+
+    .practice-test-feedback.incorrect .practice-test-feedback-header {
+        color: #ef4444;
+    }
+
+    .practice-test-explanation {
+        color: #ececf1;
+        line-height: 1.6;
+        font-size: 1rem;
+    }
+
+    .practice-test-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+        border-top: 1px solid #4a5568;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .practice-test-score {
+        color: #ececf1;
+        font-weight: 600;
+        font-size: 1.125rem;
+    }
+
+    .practice-test-controls {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .practice-test-hint {
+        color: #8e8ea0;
+        font-size: 0.875rem;
+        text-align: center;
+        width: 100%;
+        order: 3;
+    }
+
+    /* Summary Screen */
+    .practice-test-summary {
+        background: #2d3748;
+        border-radius: 1rem;
+        width: 100%;
+        max-width: 600px;
+        padding: 3rem;
+        position: relative;
+        text-align: center;
+    }
+
+    .practice-test-summary .practice-test-close-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+
+    .practice-test-summary-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .practice-test-summary-icon {
+        font-size: 5rem;
+        color: #10b981;
+    }
+
+    .practice-test-summary h2 {
+        color: #ececf1;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .practice-test-summary-score {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .practice-test-summary-score-main {
+        color: #ececf1;
+        font-size: 4rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .practice-test-summary-score-percent {
+        color: #10b981;
+        font-size: 2rem;
+        font-weight: 600;
+    }
+
+    .practice-test-summary-message {
+        color: #8e8ea0;
+        font-size: 1.125rem;
+        line-height: 1.6;
+        max-width: 400px;
+    }
+
+    .practice-test-summary-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    /* Mobile Responsive */
+    @@media (max-width: 768px) {
+        .practice-test-container {
+            max-height: 95vh;
+        }
+
+        .practice-test-content {
+            padding: 1.5rem;
+        }
+
+        .practice-test-question {
+            font-size: 1.25rem;
+        }
+
+        .practice-test-option-text {
+            font-size: 1rem;
+        }
+
+        .practice-test-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .practice-test-score {
+            text-align: center;
+        }
+
+        .practice-test-controls {
+            justify-content: center;
+        }
+
+        .practice-test-summary {
+            padding: 2rem 1.5rem;
+        }
+
+        .practice-test-summary h2 {
+            font-size: 2rem;
+        }
+
+        .practice-test-summary-score-main {
+            font-size: 3rem;
+        }
+
+        .practice-test-summary-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .practice-test-summary-actions .btn {
+            width: 100%;
+        }
+    }
+</style>

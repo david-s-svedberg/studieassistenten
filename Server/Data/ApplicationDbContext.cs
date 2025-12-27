@@ -17,6 +17,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<StudyDocument> StudyDocuments => Set<StudyDocument>();
     public DbSet<GeneratedContent> GeneratedContents => Set<GeneratedContent>();
     public DbSet<Flashcard> Flashcards => Set<Flashcard>();
+    public DbSet<PracticeQuestion> PracticeQuestions => Set<PracticeQuestion>();
     public DbSet<Test> Tests => Set<Test>();
     public DbSet<UsageTracking> UsageTrackings => Set<UsageTracking>();
     public DbSet<TestShare> TestShares => Set<TestShare>();
@@ -81,7 +82,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Question).IsRequired().HasMaxLength(1000);
             entity.Property(e => e.Answer).IsRequired().HasMaxLength(2000);
         });
-        
+
+        // Configure PracticeQuestion
+        modelBuilder.Entity<PracticeQuestion>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Question).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.OptionsJson).IsRequired();
+            entity.Property(e => e.CorrectAnswer).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Explanation).HasMaxLength(2000);
+        });
+
         // Configure Test
         modelBuilder.Entity<Test>(entity =>
         {

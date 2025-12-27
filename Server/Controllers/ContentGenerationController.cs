@@ -149,6 +149,7 @@ public class ContentGenerationController : BaseApiController
 
         var contents = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.PracticeQuestions)
             .Where(gc => gc.StudyDocumentId == documentId)
             .OrderByDescending(gc => gc.GeneratedAt)
             .ToListAsync();
@@ -192,6 +193,7 @@ public class ContentGenerationController : BaseApiController
         // Get all generated content for this test
         var contents = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.PracticeQuestions)
             .Where(gc => gc.TestId == testId)
             .OrderByDescending(gc => gc.GeneratedAt)
             .ToListAsync();
@@ -258,6 +260,7 @@ public class ContentGenerationController : BaseApiController
         // Get paginated content
         var contents = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.PracticeQuestions)
             .Where(gc => gc.TestId == testId)
             .OrderByDescending(gc => gc.GeneratedAt)
             .Skip((pageNumber - 1) * pageSize)
@@ -289,6 +292,7 @@ public class ContentGenerationController : BaseApiController
         // Get content with test relationship
         var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.PracticeQuestions)
             .Include(gc => gc.Test)
             .Include(gc => gc.StudyDocument) // Legacy: for backward compatibility
                 .ThenInclude(d => d!.Test)
@@ -334,6 +338,7 @@ public class ContentGenerationController : BaseApiController
         // Get content and verify ownership via Test relationship
         var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.PracticeQuestions)
             .Include(gc => gc.Test)
             .Include(gc => gc.StudyDocument) // Legacy: for backward compatibility
                 .ThenInclude(d => d!.Test)
@@ -374,6 +379,7 @@ public class ContentGenerationController : BaseApiController
         // Get content with test relationship
         var content = await _context.GeneratedContents
             .Include(gc => gc.Flashcards)
+            .Include(gc => gc.PracticeQuestions)
             .Include(gc => gc.Test)
             .Include(gc => gc.StudyDocument) // Legacy: for backward compatibility
                 .ThenInclude(d => d!.Test)
