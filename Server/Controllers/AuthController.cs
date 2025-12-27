@@ -183,4 +183,85 @@ public class AuthController : BaseApiController
         _logger.LogInformation("User logged out: {Email}", userEmail);
         return Ok(new { message = "Logged out successfully" });
     }
+
+#if DEBUG
+    /// <summary>
+    /// TEST ONLY: Sign in as a test user without OAuth (DEVELOPMENT MODE ONLY)
+    /// This endpoint is compiled only in DEBUG mode and should NEVER be deployed to production.
+    /// Used for E2E testing to bypass Google OAuth authentication.
+    /// </summary>
+    [HttpPost("test-signin")]
+    public async Task<IActionResult> TestSignIn([FromBody] TestSignInRequest? request)
+    {
+        // Extra safety check - verify we're in Development environment
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        if (environment != "Development")
+        {
+            _logger.LogWarning("Attempted to use test-signin endpoint in non-Development environment: {Environment}", environment);
+            return NotFound(); // Return 404 instead of revealing endpoint exists
+        }
+
+        // Default test user email
+        var email = request?.Email ?? "test@example.com";
+        var name = request?.Name ?? "Test User";
+
+        _logger.LogInformation("TEST-SIGNIN: Signing in test user: {Email}", email);
+
+        // Find or create test user
+        var user = await _userManager.FindByEmailAsync(email);
+
+        if (user == null)
+        {
+            user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true,
+                FullName = name,
+                ProfilePictureUrl = "https://via.placeholder.com/150",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var createResult = await _userManager.CreateAsync(user);
+
+            if (!createResult.Succeeded)
+            {
+                _logger.LogError("TEST-SIGNIN: Failed to create test user: {Errors}",
+                    string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                return BadRequest(new { error = "Failed to create test user" });
+            }
+
+            _logger.LogInformation("TEST-SIGNIN: Created new test user: {Email}", email);
+        }
+        else
+        {
+            user.LastLoginAt = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+        }
+
+        // Sign in the test user
+        await _signInManager.SignInAsync(user, isPersistent: true);
+
+        _logger.LogInformation("TEST-SIGNIN: Test user signed in: {Email}", email);
+
+        return Ok(new
+        {
+            message = "Test sign-in successful",
+            userId = user.Id,
+            email = user.Email,
+            name = user.FullName
+        });
+    }
+#endif
 }
+
+#if DEBUG
+/// <summary>
+/// Request model for test sign-in endpoint (DEBUG only)
+/// </summary>
+public class TestSignInRequest
+{
+    public string? Email { get; set; }
+    public string? Name { get; set; }
+}
+#endif

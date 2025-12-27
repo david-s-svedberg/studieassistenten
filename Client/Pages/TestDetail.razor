@@ -116,21 +116,21 @@ else
                     <h4>Generate Content</h4>
                 }
                 <div class="generation-buttons">
-                    <button class="btn btn-success" @onclick="GenerateFlashcards" disabled="@isGenerating">
+                    <button class="btn btn-success" @onclick="GenerateFlashcards" disabled="@isGenerating" data-testid="generate-flashcards-button">
                         @if (isGenerating && generatingType == ProcessingType.Flashcards)
                         {
                             <span class="spinner-border spinner-border-sm me-2"></span>
                         }
                         <i class="bi bi-card-list"></i> Generate Flashcards
                     </button>
-                    <button class="btn btn-info" @onclick="GeneratePracticeTest" disabled="@isGenerating">
+                    <button class="btn btn-info" @onclick="GeneratePracticeTest" disabled="@isGenerating" data-testid="generate-practice-test-button">
                         @if (isGenerating && generatingType == ProcessingType.PracticeTest)
                         {
                             <span class="spinner-border spinner-border-sm me-2"></span>
                         }
                         <i class="bi bi-file-text"></i> Generate Practice Test
                     </button>
-                    <button class="btn btn-warning" @onclick="GenerateSummary" disabled="@isGenerating">
+                    <button class="btn btn-warning" @onclick="GenerateSummary" disabled="@isGenerating" data-testid="generate-summary-button">
                         @if (isGenerating && generatingType == ProcessingType.Summary)
                         {
                             <span class="spinner-border spinner-border-sm me-2"></span>

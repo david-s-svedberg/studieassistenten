@@ -10,7 +10,7 @@
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>My Tests</h1>
-        <button class="btn btn-primary" @onclick="ShowCreateDialog">
+        <button class="btn btn-primary" @onclick="ShowCreateDialog" data-testid="create-test-button">
             <i class="bi bi-plus-circle"></i> Create New Test
         </button>
     </div>
@@ -40,7 +40,7 @@
             @foreach (var test in tests)
             {
                 <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 shadow-sm">
+                    <div class="card h-100 shadow-sm" data-testid="test-card">
                         <div class="card-body">
                             <h5 class="card-title">@test.Name</h5>
                             <p class="card-text text-muted">@test.Description</p>
@@ -63,13 +63,13 @@
                             }
                             
                             <div class="d-flex gap-2 mt-3">
-                                <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => ViewTest(test.Id)">
+                                <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="() => ViewTest(test.Id)" data-testid="view-test-button">
                                     <i class="bi bi-eye"></i> View
                                 </button>
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditTest(test)">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditTest(test)" data-testid="edit-test-button">
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTest(test)">
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTest(test)" data-testid="delete-test-button">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
@@ -97,20 +97,20 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Test Name *</label>
-                        <input type="text" class="form-control" @bind="testName" placeholder="e.g., Math Final Exam" />
+                        <input type="text" class="form-control" @bind="testName" placeholder="e.g., Math Final Exam" data-testid="test-name-input" />
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Description</label>
-                        <textarea class="form-control" rows="2" @bind="testDescription" placeholder="Brief description of the test"></textarea>
+                        <textarea class="form-control" rows="2" @bind="testDescription" placeholder="Brief description of the test" data-testid="test-description-input"></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Instructions for AI</label>
-                        <textarea class="form-control" rows="3" @bind="testInstructions" placeholder="Instructions for AI when generating content (e.g., focus on key concepts, use simple language)"></textarea>
+                        <textarea class="form-control" rows="3" @bind="testInstructions" placeholder="Instructions for AI when generating content (e.g., focus on key concepts, use simple language)" data-testid="test-instructions-input"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="HideDialog">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="SaveTest" disabled="@(string.IsNullOrWhiteSpace(testName))">
+                    <button type="button" class="btn btn-secondary" @onclick="HideDialog" data-testid="cancel-button">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveTest" disabled="@(string.IsNullOrWhiteSpace(testName))" data-testid="save-test-button">
                         @(editingTest == null ? "Create" : "Save Changes")
                     </button>
                 </div>
