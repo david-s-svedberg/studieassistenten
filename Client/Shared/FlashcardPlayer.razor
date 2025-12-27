@@ -1,0 +1,606 @@
+@using StudieAssistenten.Shared.DTOs
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="flashcard-player-overlay @(isExiting ? "exiting" : "")">
+    <div class="flashcard-player">
+        @* Header: Progress + Close *@
+        <div class="player-header">
+            <div class="progress-indicator">
+                <span class="progress-text">@(currentCardIndex + 1) / @TotalCards</span>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" style="width: @ProgressPercent%"></div>
+                </div>
+            </div>
+            <button class="btn-player-close" @onclick="Close" title="Close (ESC)">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        @* Main Card Area *@
+        <div class="flashcard-area" @onclick="HandleCardClick">
+            <div class="flashcard-container @animationClass">
+                <div class="flashcard @(isFlipped ? "flipped" : "")">
+                    <div class="flashcard-face flashcard-front">
+                        <div class="card-label">Question</div>
+                        <div class="card-text">@CurrentCard.Question</div>
+                        <div class="card-hint">Click to reveal answer</div>
+                    </div>
+                    <div class="flashcard-face flashcard-back">
+                        <div class="card-label">Answer</div>
+                        <div class="card-text">@CurrentCard.Answer</div>
+                        <div class="card-hint">Click to continue</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Controls Footer *@
+        <div class="player-footer">
+            <div class="player-controls-left">
+                <button class="btn-player-control" @onclick="Shuffle" @onclick:stopPropagation="true" title="Shuffle cards">
+                    <i class="bi @(isShuffled ? "bi-shuffle" : "bi-arrow-down-up")"></i>
+                    @(isShuffled ? "Shuffled" : "Sequential")
+                </button>
+                <button class="btn-player-control" @onclick="Restart" @onclick:stopPropagation="true" title="Restart from beginning">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Restart
+                </button>
+            </div>
+
+            <div class="player-controls-center">
+                <button class="btn-player-nav" @onclick="PreviousCard" @onclick:stopPropagation="true"
+                        disabled="@(currentCardIndex == 0)" title="Previous card (←)">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button class="btn-player-action @(IsCardKnown(CurrentCard.Id) ? "known" : "unknown")"
+                        @onclick="ToggleKnown" @onclick:stopPropagation="true"
+                        title="@(IsCardKnown(CurrentCard.Id) ? "Mark as unknown" : "Mark as known")">
+                    <i class="bi @(IsCardKnown(CurrentCard.Id) ? "bi-check-circle-fill" : "bi-circle")"></i>
+                    @(IsCardKnown(CurrentCard.Id) ? "Known" : "Mark Known")
+                </button>
+                <button class="btn-player-nav" @onclick="NextCard" @onclick:stopPropagation="true"
+                        disabled="@(currentCardIndex == TotalCards - 1)" title="Next card (→)">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+
+            <div class="player-controls-right">
+                <div class="keyboard-hint">
+                    <small>Space: flip/next • Arrows: navigate • ESC: exit</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Full-screen overlay */
+    .flashcard-player-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.95);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: playerFadeIn 0.2s ease-in-out;
+    }
+
+    .flashcard-player-overlay.exiting {
+        animation: playerFadeIn 0.2s ease-in-out reverse;
+    }
+
+    .flashcard-player {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    /* Header */
+    .player-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 1.5rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+        z-index: 10001;
+    }
+
+    .progress-indicator {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-width: 200px;
+    }
+
+    .progress-text {
+        color: #ececf1;
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .progress-bar-container {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #10b981, #3b82f6);
+        transition: width 0.3s ease-in-out;
+    }
+
+    .btn-player-close {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #ececf1;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-player-close:hover {
+        background: rgba(239, 68, 68, 0.3);
+        border-color: rgba(239, 68, 68, 0.5);
+        color: #fca5a5;
+        transform: scale(1.1);
+    }
+
+    /* Card Area */
+    .flashcard-area {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        cursor: pointer;
+    }
+
+    .flashcard-container {
+        perspective: 1000px;
+        width: 70%;
+        max-width: 800px;
+        height: 500px;
+    }
+
+    .flashcard {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transform-style: preserve-3d;
+        transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+    }
+
+    .flashcard.flipped {
+        transform: rotateY(180deg);
+    }
+
+    .flashcard-face {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #2d3748;
+        border-radius: 16px;
+        padding: 3rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .flashcard-back {
+        transform: rotateY(180deg);
+    }
+
+    .card-label {
+        position: absolute;
+        top: 1.5rem;
+        left: 2rem;
+        color: #8e8ea0;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+
+    .card-text {
+        font-size: 1.5rem;
+        line-height: 1.6;
+        color: #ececf1;
+        text-align: center;
+        max-width: 90%;
+        overflow-y: auto;
+        max-height: 80%;
+    }
+
+    .card-hint {
+        position: absolute;
+        bottom: 1.5rem;
+        color: #8e8ea0;
+        font-size: 0.875rem;
+        font-style: italic;
+    }
+
+    /* Slide animations */
+    .flashcard-container.advancing .flashcard {
+        animation: slideOutLeft 0.3s ease-in-out;
+    }
+
+    .flashcard-container.entering .flashcard {
+        animation: slideInRight 0.3s ease-in-out;
+    }
+
+    @@keyframes slideOutLeft {
+        from {
+            transform: translateX(0) scale(1);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(-120%) scale(0.8);
+            opacity: 0;
+        }
+    }
+
+    @@keyframes slideInRight {
+        from {
+            transform: translateX(120%) scale(0.8);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0) scale(1);
+            opacity: 1;
+        }
+    }
+
+    @@keyframes playerFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* Footer */
+    .player-footer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1.5rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+        z-index: 10001;
+    }
+
+    .player-controls-left,
+    .player-controls-center,
+    .player-controls-right {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .btn-player-control {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #ececf1;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .btn-player-control:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-player-nav {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #ececf1;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 1.5rem;
+    }
+
+    .btn-player-nav:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.1);
+    }
+
+    .btn-player-nav:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .btn-player-action {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #ececf1;
+        padding: 0.875rem 2rem;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 1rem;
+        font-weight: 500;
+    }
+
+    .btn-player-action.known {
+        background: rgba(16, 185, 129, 0.2);
+        border-color: rgba(16, 185, 129, 0.4);
+        color: #10b981;
+    }
+
+    .btn-player-action.unknown:hover {
+        background: rgba(16, 185, 129, 0.15);
+        border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-player-action.known:hover {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: rgba(239, 68, 68, 0.4);
+        color: #ef4444;
+    }
+
+    .keyboard-hint {
+        color: #8e8ea0;
+        font-size: 0.75rem;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .flashcard-container {
+            width: 90%;
+            height: 400px;
+        }
+
+        .card-text {
+            font-size: 1.25rem;
+        }
+
+        .player-footer {
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .keyboard-hint {
+            display: none;
+        }
+
+        .player-controls-left,
+        .player-controls-center {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-player-control {
+            font-size: 0.8rem;
+            padding: 0.5rem 1rem;
+        }
+    }
+</style>
+
+@code {
+    // Parameters
+    [Parameter, EditorRequired]
+    public List<FlashcardDto> Flashcards { get; set; } = new();
+
+    [Parameter, EditorRequired]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Flashcards";
+
+    // Navigation state
+    private int currentCardIndex = 0;
+    private bool isFlipped = false;
+    private string animationClass = "";
+
+    // Order state
+    private bool isShuffled = false;
+    private List<FlashcardDto> displayFlashcards = new();
+
+    // Mastery tracking
+    private HashSet<int> knownCardIds = new();
+
+    // Exit state
+    private bool isExiting = false;
+
+    // JS interop
+    private DotNetObjectReference<FlashcardPlayer>? dotNetRef;
+
+    // Computed properties
+    private FlashcardDto CurrentCard => displayFlashcards[currentCardIndex];
+    private int TotalCards => displayFlashcards.Count;
+    private double ProgressPercent => (currentCardIndex + 1) / (double)TotalCards * 100;
+
+    protected override void OnInitialized()
+    {
+        // Initialize with cards in original order
+        displayFlashcards = Flashcards.OrderBy(f => f.Order).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("addFlashcardKeyListener", dotNetRef);
+        }
+    }
+
+    // Card interaction
+    private async Task HandleCardClick()
+    {
+        if (!isFlipped)
+        {
+            FlipCard();
+        }
+        else
+        {
+            await NextCard();
+        }
+    }
+
+    private void FlipCard()
+    {
+        isFlipped = !isFlipped;
+    }
+
+    // Navigation
+    private async Task NextCard()
+    {
+        if (currentCardIndex >= TotalCards - 1) return;
+
+        // Trigger exit animation
+        animationClass = "advancing";
+        StateHasChanged();
+        await Task.Delay(300);
+
+        // Update state
+        currentCardIndex++;
+        isFlipped = false;
+        animationClass = "entering";
+        StateHasChanged();
+
+        await Task.Delay(300);
+        animationClass = "";
+        StateHasChanged();
+    }
+
+    private async Task PreviousCard()
+    {
+        if (currentCardIndex <= 0) return;
+
+        // Similar to NextCard but decrement
+        animationClass = "advancing";
+        StateHasChanged();
+        await Task.Delay(300);
+
+        currentCardIndex--;
+        isFlipped = false;
+        animationClass = "entering";
+        StateHasChanged();
+
+        await Task.Delay(300);
+        animationClass = "";
+        StateHasChanged();
+    }
+
+    // Control features
+    private void Shuffle()
+    {
+        if (isShuffled)
+        {
+            // Return to sequential order
+            displayFlashcards = Flashcards.OrderBy(f => f.Order).ToList();
+            isShuffled = false;
+        }
+        else
+        {
+            // Shuffle using Random.Shared
+            displayFlashcards = Flashcards.OrderBy(_ => Random.Shared.Next()).ToList();
+            isShuffled = true;
+        }
+
+        currentCardIndex = 0;
+        isFlipped = false;
+        StateHasChanged();
+    }
+
+    private void Restart()
+    {
+        currentCardIndex = 0;
+        isFlipped = false;
+        StateHasChanged();
+    }
+
+    private void ToggleKnown()
+    {
+        var cardId = CurrentCard.Id;
+        if (knownCardIds.Contains(cardId))
+            knownCardIds.Remove(cardId);
+        else
+            knownCardIds.Add(cardId);
+
+        StateHasChanged();
+    }
+
+    private bool IsCardKnown(int cardId)
+    {
+        return knownCardIds.Contains(cardId);
+    }
+
+    private async Task Close()
+    {
+        isExiting = true;
+        StateHasChanged();
+        await Task.Delay(200);
+        await OnClose.InvokeAsync();
+    }
+
+    // Keyboard handler
+    [JSInvokable]
+    public async Task HandleKeyPress(string key)
+    {
+        switch (key)
+        {
+            case " ": // Spacebar
+                if (!isFlipped)
+                    FlipCard();
+                else
+                    await NextCard();
+                StateHasChanged();
+                break;
+            case "ArrowRight":
+                await NextCard();
+                break;
+            case "ArrowLeft":
+                await PreviousCard();
+                break;
+            case "Escape":
+                await Close();
+                break;
+        }
+    }
+
+    public void Dispose()
+    {
+        JS.InvokeVoidAsync("removeFlashcardKeyListener");
+        dotNetRef?.Dispose();
+    }
+}

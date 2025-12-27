@@ -110,6 +110,12 @@ else
                                     @content.ProcessingType • @content.GeneratedAt.ToString("yyyy-MM-dd HH:mm")
                                 </div>
                             </div>
+                            @if (content.ProcessingType == ProcessingType.Flashcards)
+                            {
+                                <button class="btn btn-sm btn-success me-2" @onclick="() => PlayFlashcards(content)" title="Play flashcards">
+                                    <i class="bi bi-play-fill"></i> Play
+                                </button>
+                            }
                             <a href="@ContentService.GetPdfUrl(content.Id)" target="_blank" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-download"></i> PDF
                             </a>
@@ -362,6 +368,11 @@ else
 @if (showManageSharesDialog && test != null)
 {
     <ManageSharesDialog TestId="test.Id" OnClose="CloseManageSharesDialog" OnShareRevoked="LoadShareCount" />
+}
+
+@if (showFlashcardPlayer)
+{
+    <FlashcardPlayer Flashcards="currentFlashcards" Title="currentFlashcardTitle" OnClose="CloseFlashcardPlayer" />
 }
 
 <style>
@@ -714,6 +725,11 @@ else
     private bool showShareDialog = false;
     private bool showManageSharesDialog = false;
 
+    // Flashcard player state
+    private bool showFlashcardPlayer = false;
+    private List<FlashcardDto> currentFlashcards = new();
+    private string currentFlashcardTitle = "";
+
     // Share state
     private int shareCount = 0;
 
@@ -843,6 +859,21 @@ else
         showPracticeTestDialog = false;
         showSummaryDialog = false;
         showShareDialog = false;
+    }
+
+    // Flashcard player
+    private void PlayFlashcards(GeneratedContentDto content)
+    {
+        currentFlashcards = content.Flashcards;
+        currentFlashcardTitle = content.Title;
+        showFlashcardPlayer = true;
+    }
+
+    private void CloseFlashcardPlayer()
+    {
+        showFlashcardPlayer = false;
+        currentFlashcards = new();
+        currentFlashcardTitle = "";
     }
 
     // Share management

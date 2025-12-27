@@ -73,6 +73,26 @@
             anchor.click();
             document.body.removeChild(anchor);
         };
+
+        // Flashcard player keyboard listener
+        window.flashcardKeyListener = null;
+
+        window.addFlashcardKeyListener = function(dotNetHelper) {
+            window.flashcardKeyListener = function(e) {
+                if ([' ', 'ArrowLeft', 'ArrowRight', 'Escape'].includes(e.key)) {
+                    e.preventDefault();
+                    dotNetHelper.invokeMethodAsync('HandleKeyPress', e.key);
+                }
+            };
+            document.addEventListener('keydown', window.flashcardKeyListener);
+        };
+
+        window.removeFlashcardKeyListener = function() {
+            if (window.flashcardKeyListener) {
+                document.removeEventListener('keydown', window.flashcardKeyListener);
+                window.flashcardKeyListener = null;
+            }
+        };
     </script>
 </body>
 
