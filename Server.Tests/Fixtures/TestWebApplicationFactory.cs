@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using StudieAssistenten.Server.Data;
@@ -24,6 +25,15 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>, IDispos
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Override configuration for test environment
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AI:Provider"] = "Anthropic"  // Tests use MockAiProvider which returns Anthropic type
+            });
+        });
+
         builder.ConfigureTestServices(services =>
         {
             // Remove the existing DbContext configuration

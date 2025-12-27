@@ -12,7 +12,7 @@ public class GeminiAiProvider : IAiProvider
     private readonly IRateLimitingService _rateLimitingService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<GeminiAiProvider> _logger;
-    private readonly string _model;
+    private readonly string _modelName;
 
     public AiProviderType ProviderType => AiProviderType.Gemini;
 
@@ -26,7 +26,8 @@ public class GeminiAiProvider : IAiProvider
         _logger = logger;
 
         var apiKey = configuration["Gemini:ApiKey"];
-        _model = configuration["Gemini:Model"] ?? "gemini-2.0-flash-exp";
+        var modelConfig = configuration["Gemini:Model"] ?? "gemini-2.5-flash";
+        _modelName = modelConfig;
 
         if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "your-api-key-here")
         {
@@ -44,6 +45,22 @@ public class GeminiAiProvider : IAiProvider
         return _client != null;
     }
 
+    private string GetModelEnum(string modelName)
+    {
+        // Map configuration strings to SDK model names
+        // The SDK expects specific model names (not the enum in newer versions)
+        return modelName.ToLowerInvariant() switch
+        {
+            "gemini-2.5-flash" or "gemini-25-flash" => "gemini-2.5-flash",
+            "gemini-2.5-pro" or "gemini-25-pro" => "gemini-2.5-pro",
+            "gemini-2.5-flash-lite" => "gemini-2.5-flash-lite",
+            "gemini-2.0-flash" or "gemini-20-flash" => "gemini-2.0-flash",
+            "gemini-3-flash-preview" => "gemini-3-flash-preview",
+            "gemini-3-pro-preview" => "gemini-3-pro-preview",
+            _ => modelName // Use as-is if no mapping found
+        };
+    }
+
     public async Task<AiResponse> SendMessageAsync(AiRequest request, CancellationToken cancellationToken = default)
     {
         if (!IsConfigured())
@@ -51,12 +68,13 @@ public class GeminiAiProvider : IAiProvider
             throw new InvalidOperationException("Gemini provider is not configured. Please set Gemini:ApiKey in configuration.");
         }
 
+        var modelName = GetModelEnum(_modelName);
         _logger.LogInformation("Calling Gemini API with model: {Model}, Temperature: {Temperature}, MaxTokens: {MaxTokens}",
-            _model, request.Temperature, request.MaxTokens);
+            modelName, request.Temperature, request.MaxTokens);
 
         try
         {
-            var model = _client!.GenerativeModel(model: _model);
+            var model = _client!.GenerativeModel(model: modelName);
 
             // Build the full prompt (system + user)
             var fullPrompt = string.IsNullOrEmpty(request.SystemPrompt)
@@ -91,7 +109,7 @@ public class GeminiAiProvider : IAiProvider
             {
                 Id = Guid.NewGuid().ToString(), // Gemini doesn't provide response IDs
                 Content = response.Text,
-                Model = _model,
+                Model = modelName,
                 Provider = AiProviderType.Gemini,
                 StopReason = response.Candidates?.FirstOrDefault()?.FinishReason?.ToString(),
                 Usage = new AiUsage
@@ -105,7 +123,7 @@ public class GeminiAiProvider : IAiProvider
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Gemini API call failed. Model: {Model}, Error: {ErrorMessage}", _model, ex.Message);
+            _logger.LogError(ex, "Gemini API call failed. Model: {Model}, Error: {ErrorMessage}", modelName, ex.Message);
             throw;
         }
     }
