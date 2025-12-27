@@ -9,6 +9,7 @@ namespace StudieAssistenten.Server.Tests.Mocks;
 public class MockAiProvider : IAiProvider
 {
     private int _callCount = 0;
+    private int _practiceTestCallCount = 0;
 
     public int CallCount => _callCount;
     public AiProviderType ProviderType => AiProviderType.Anthropic;
@@ -33,7 +34,18 @@ public class MockAiProvider : IAiProvider
         else if (systemPrompt.Contains("practice test", StringComparison.OrdinalIgnoreCase) ||
             systemPrompt.Contains("quiz", StringComparison.OrdinalIgnoreCase))
         {
-            responseText = GenerateMockPracticeTest();
+            _practiceTestCallCount++;
+            // PracticeTestGenerator makes 2 calls: first for JSON (interactive), second for markdown (PDF)
+            if (_practiceTestCallCount % 2 == 1 || userPrompt.Contains("multiple-choice", StringComparison.OrdinalIgnoreCase))
+            {
+                // First call or explicit request for JSON - return JSON format
+                responseText = GenerateMockPracticeTestJson();
+            }
+            else
+            {
+                // Second call - return markdown format for PDF
+                responseText = GenerateMockPracticeTestMarkdown();
+            }
         }
         else if (systemPrompt.Contains("summary", StringComparison.OrdinalIgnoreCase) ||
             userPrompt.Contains("summary", StringComparison.OrdinalIgnoreCase))
@@ -96,7 +108,31 @@ public class MockAiProvider : IAiProvider
 ]";
     }
 
-    private string GenerateMockPracticeTest()
+    private string GenerateMockPracticeTestJson()
+    {
+        return @"[
+  {
+    ""question"": ""Which testing tool is recommended for Blazor component testing?"",
+    ""options"": [""Selenium"", ""bUnit"", ""Postman"", ""JMeter""],
+    ""correctAnswer"": ""bUnit"",
+    ""explanation"": ""bUnit is purpose-built for testing Blazor components without requiring a browser, making it fast and lightweight.""
+  },
+  {
+    ""question"": ""True or False: EF Core's InMemory database provider enforces unique constraints and foreign keys."",
+    ""options"": [""True"", ""False""],
+    ""correctAnswer"": ""False"",
+    ""explanation"": ""The EF Core InMemory provider does not enforce many constraints, which is why SQLite in-memory is recommended for testing.""
+  },
+  {
+    ""question"": ""Which NuGet package provides WebApplicationFactory?"",
+    ""options"": [""Microsoft.AspNetCore.Testing"", ""Microsoft.AspNetCore.Mvc.Testing"", ""Microsoft.Testing.WebApplications"", ""xUnit.WebApplicationFactory""],
+    ""correctAnswer"": ""Microsoft.AspNetCore.Mvc.Testing"",
+    ""explanation"": ""This package contains WebApplicationFactory and related testing utilities for ASP.NET Core applications.""
+  }
+]";
+    }
+
+    private string GenerateMockPracticeTestMarkdown()
     {
         return @"# Practice Test: Integration Testing Fundamentals
 
@@ -184,5 +220,6 @@ Integration tests provide the best balance of coverage, speed, and reliability, 
     public void Reset()
     {
         _callCount = 0;
+        _practiceTestCallCount = 0;
     }
 }
