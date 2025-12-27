@@ -1,4 +1,5 @@
 @using StudieAssistenten.Shared.DTOs
+@using Microsoft.JSInterop
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -459,7 +460,15 @@
         if (firstRender)
         {
             dotNetRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("addFlashcardKeyListener", dotNetRef);
+            try
+            {
+                await JS.InvokeVoidAsync("addFlashcardKeyListener", dotNetRef);
+            }
+            catch (JSException)
+            {
+                // Keyboard listener not available - player will still work with click/touch
+                // This can happen if the script hasn't loaded yet
+            }
         }
     }
 
@@ -600,7 +609,14 @@
 
     public void Dispose()
     {
-        JS.InvokeVoidAsync("removeFlashcardKeyListener");
+        try
+        {
+            JS.InvokeVoidAsync("removeFlashcardKeyListener");
+        }
+        catch
+        {
+            // Cleanup function not available - ignore error
+        }
         dotNetRef?.Dispose();
     }
 }
